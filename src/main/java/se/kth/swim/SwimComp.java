@@ -18,12 +18,18 @@
  */
 package se.kth.swim;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import se.kth.swim.msg.Pong;
 import se.kth.swim.msg.Status;
 import se.kth.swim.msg.net.NetPing;
+import se.kth.swim.msg.net.NetPong;
 import se.kth.swim.msg.net.NetStatus;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
@@ -55,16 +61,26 @@ public class SwimComp extends ComponentDefinition {
     private UUID statusTimeoutId;
 
     private int receivedPings = 0;
+    
+    private Set<NatedAddress> deadPeers = new HashSet<NatedAddress>();
+    private Set<NatedAddress> alivePeers  = new HashSet<NatedAddress>();
+    private Set<NatedAddress> suspectedPeers  = new HashSet<NatedAddress>();
+
 
     public SwimComp(SwimInit init) {
         this.selfAddress = init.selfAddress;
         log.info("{} initiating...", selfAddress);
         this.bootstrapNodes = init.bootstrapNodes;
         this.aggregatorAddress = init.aggregatorAddress;
+        
+        this.deadPeers.add(this.selfAddress);
+        suspectedPeers = null;
+//        alivePeers = null;
 
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handlePing, network);
+        subscribe(handlePong, network);
         subscribe(handlePingTimeout, timer);
         subscribe(handleStatusTimeout, timer);
     }
@@ -101,11 +117,25 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetPing event) {
-            log.info("{} received ping from:{}", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
+            log.info("{} received ping from:{} , sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
             receivedPings++;
+            alivePeers.add(aggregatorAddress);
+            alivePeers.add(selfAddress);
+            
+            trigger(new NetPong(selfAddress, event.getSource(), new Pong(alivePeers)), network);
         }
 
     };
+    
+    private Handler<NetPong> handlePong = new Handler<NetPong>() {
+
+        @Override
+        public void handle(NetPong event) {
+            log.info("{} received pong from:{}, deadPeers: {}", new Object[]{selfAddress.getId(), event.getHeader().getSource(), event.getContent().getDead()});
+        }
+
+    };
+    
 
     private Handler<PingTimeout> handlePingTimeout = new Handler<PingTimeout>() {
 
