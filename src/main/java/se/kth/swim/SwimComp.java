@@ -19,7 +19,6 @@
 package se.kth.swim;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -62,9 +61,9 @@ public class SwimComp extends ComponentDefinition {
 
     private int receivedPings = 0;
     
-    private Set<NatedAddress> deadPeers = new HashSet<NatedAddress>();
-    private Set<NatedAddress> alivePeers  = new HashSet<NatedAddress>();
-    private Set<NatedAddress> suspectedPeers  = new HashSet<NatedAddress>();
+    private Set<Peer> deadPeers = new HashSet<Peer>();
+    private Set<Peer> alivePeers  = new HashSet<Peer>();
+    private Set<Peer> suspectedPeers  = new HashSet<Peer>();
 
 
     public SwimComp(SwimInit init) {
@@ -73,9 +72,9 @@ public class SwimComp extends ComponentDefinition {
         this.bootstrapNodes = init.bootstrapNodes;
         this.aggregatorAddress = init.aggregatorAddress;
         
-        this.deadPeers.add(this.selfAddress);
-        suspectedPeers = null;
-//        alivePeers = null;
+        for (NatedAddress bootstrap : init.bootstrapNodes){
+            this.alivePeers.add(new Peer(bootstrap));
+        }
 
         subscribe(handleStart, control);
         subscribe(handleStop, control);
@@ -90,14 +89,12 @@ public class SwimComp extends ComponentDefinition {
         @Override
         public void handle(Start event) {
             log.info("{} starting...", new Object[]{selfAddress.getId()});
-
-            if (!bootstrapNodes.isEmpty()) {
-                schedulePeriodicPing();
-            }
+            schedulePeriodicPing();   
             schedulePeriodicStatus();
         }
 
     };
+        
     private Handler<Stop> handleStop = new Handler<Stop>() {
 
         @Override
@@ -117,14 +114,10 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetPing event) {
-            log.info("{} received ping from:{} , sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
+            log.info("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
             receivedPings++;
-
-            
-            alivePeers.add(aggregatorAddress);
-            alivePeers.add(selfAddress);
-            
-            trigger(new NetPong(selfAddress, event.getSource(), new Pong(alivePeers)), network);
+            alivePeers.add(new Peer(event.getSource()));
+            trigger(new NetPong(selfAddress, event.getSource(), new Pong(deadPeers, suspectedPeers, alivePeers)), network);
         }
 
     };
@@ -133,7 +126,16 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetPong event) {
-            log.info("{} received pong from:{}, deadPeers: {}", new Object[]{selfAddress.getId(), event.getHeader().getSource(), event.getContent().getDead()});
+            log.info("{} received pong from:{}", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
+            for( Peer address : event.getContent().getSuspected()){
+                suspectedPeers.add(address);
+            }
+            for( Peer address : event.getContent().getDead()){
+                deadPeers.add(address);
+            }
+            for( Peer address : event.getContent().getAlive()){
+                alivePeers.add(address);
+            }
         }
 
     };
@@ -143,12 +145,12 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(PingTimeout event) {
-            for (NatedAddress partnerAddress : bootstrapNodes) {
-                log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress});
-                trigger(new NetPing(selfAddress, partnerAddress), network);
+           
+            for (Peer partnerAddress : alivePeers) {
+                log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId()});
+                trigger(new NetPing(selfAddress, partnerAddress.getPeer()), network);
             }
         }
-
     };
 
     private Handler<StatusTimeout> handleStatusTimeout = new Handler<StatusTimeout>() {
@@ -160,6 +162,8 @@ public class SwimComp extends ComponentDefinition {
         }
 
     };
+    
+    
 
     private void schedulePeriodicPing() {
         SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(1000, 1000);
@@ -215,4 +219,6 @@ public class SwimComp extends ComponentDefinition {
             super(request);
         }
     }
+    
+   
 }

@@ -16,37 +16,43 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package se.kth.swim.msg;
-
-import java.util.Set;
-import se.kth.swim.Peer;
+package se.kth.swim;
 
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
- * @author Alex Ormenisan <aaor@sics.se>
+ *
+ * @author Nick
  */
-public class Pong {
+public class Peer implements Comparable<Peer>{
+    private NatedAddress peer;
+	
+	public Peer(NatedAddress peer)  {
+		this.peer = peer;
+	}
+	
+	public NatedAddress getPeer() {
+		return peer;
+	}
+        
+        @Override
+	public int hashCode() {
+		return peer.hashCode();
+	}
+        @Override
+	public boolean equals(Object obj) {
+		if (obj instanceof Peer) {
+			Peer m = (Peer) obj;
+			return m.peer == peer;
+		}
+		return false;
+	}
 
-    public Set<Peer> dead;
-    public Set<Peer> suspected;
-    public Set<Peer> alive;
-
-    public Pong(Set<Peer> dead, Set<Peer> suspected, Set<Peer> alive) {
-        this.dead = dead;
-        this.suspected = suspected;
-        this.alive = alive;
+    public int compareTo(Peer o) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
-    public Set<Peer> getDead() {
-        return dead;
-    }
-
-    public Set<Peer> getSuspected() {
-        return suspected;
-    }
-
-    public Set<Peer> getAlive() {
-        return alive;
-    }
+    @Override
+	public String toString() {
+		return String.format(peer.toString());
+	}
 }
