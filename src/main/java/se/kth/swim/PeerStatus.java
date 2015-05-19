@@ -16,26 +16,27 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package se.kth.swim.msg;
-
-import java.util.Set;
-import se.kth.swim.Peer;
-
-import se.sics.p2ptoolbox.util.network.NatedAddress;
+package se.kth.swim;
 
 /**
- * @author Alex Ormenisan <aaor@sics.se>
+ *
+ * @author Nikos
  */
-public class Suspect {
+public class PeerStatus {
+        private Peer peer;
+        private String status; 
 
-    public Peer suspected;
-
-    public Suspect(Peer suspected) {
-        this.suspected = suspected;
-    }
-
-    public Peer getSuspected() {
-        return suspected;
-    }
-
+	
+	public PeerStatus(Peer peer, String status)  {
+		this.peer = peer;
+                this.status = status;
+	}
+        
+        public String getStatus(){
+            return status;
+        }
+        
+        public Peer getPeer(){
+            return peer;
+        }
 }

@@ -28,14 +28,4 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
  */
 public class Alive {
 
-    public Peer alive;
-
-    public Alive(Peer alive) {
- 
-        this.alive = alive;
-    }
-
-    public Peer getAlive() {
-        return alive;
-    }
 }

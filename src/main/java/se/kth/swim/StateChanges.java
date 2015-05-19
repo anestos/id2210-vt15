@@ -16,29 +16,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package se.kth.swim.msg;
+package se.kth.swim;
 
-import java.util.Set;
-import se.kth.swim.Peer;
-import se.kth.swim.PeerStatus;
-import se.kth.swim.StateChanges;
-
-import se.sics.p2ptoolbox.util.network.NatedAddress;
+import java.util.LinkedList;
 
 /**
- * @author Alex Ormenisan <aaor@sics.se>
+ *
+ * @author Nikos
  */
-public class Pong {
-
-
-    private final StateChanges<PeerStatus> queue;
-
-    public Pong(StateChanges<PeerStatus> queue) {
-        this.queue = queue;
+public class StateChanges<PeerStatus> extends LinkedList<PeerStatus> {
+    
+    private int limit;
+    
+    public StateChanges(int limit){
+        this.limit = limit;
     }
-
-    public StateChanges<PeerStatus> getQueue() {
-        return queue;
+    
+    @Override
+    public boolean add(PeerStatus p){
+        super.add(p);
+        while(size() > limit) { super.remove(); }
+        return true;
     }
-
 }

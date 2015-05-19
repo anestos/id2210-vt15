@@ -26,6 +26,7 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
  */
 public class Peer implements Comparable<Peer>{
     private NatedAddress peer;
+
 	
 	public Peer(NatedAddress peer)  {
 		this.peer = peer;

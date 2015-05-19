@@ -18,20 +18,20 @@
  */
 package se.kth.swim.msg.net;
 
-import se.kth.swim.msg.Ping;
+import se.kth.swim.msg.Alive;
 import se.sics.kompics.network.Header;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class NetAlive extends NetMsg<Ping> {
+public class NetAlive extends NetMsg<Alive> {
 
     public NetAlive(NatedAddress src, NatedAddress dst) {
-        super(src, dst, new Ping());
+        super(src, dst, new Alive());
     }
 
-    private NetAlive(Header<NatedAddress> header, Ping content) {
+    private NetAlive(Header<NatedAddress> header, Alive content) {
         super(header, content);
     }
 

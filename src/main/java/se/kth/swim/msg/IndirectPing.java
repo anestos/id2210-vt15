@@ -20,25 +20,22 @@ package se.kth.swim.msg;
 
 import java.util.Set;
 import se.kth.swim.Peer;
-import se.kth.swim.PeerStatus;
-import se.kth.swim.StateChanges;
 
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class Pong {
+public class IndirectPing {
 
+    public Peer suspected;
 
-    private final StateChanges<PeerStatus> queue;
-
-    public Pong(StateChanges<PeerStatus> queue) {
-        this.queue = queue;
+    public IndirectPing(Peer suspected) {
+        this.suspected = suspected;
     }
 
-    public StateChanges<PeerStatus> getQueue() {
-        return queue;
+    public Peer getSuspected() {
+        return suspected;
     }
 
 }

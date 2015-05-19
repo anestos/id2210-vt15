@@ -16,29 +16,28 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package se.kth.swim.msg;
+package se.kth.swim.msg.net;
 
-import java.util.Set;
-import se.kth.swim.Peer;
-import se.kth.swim.PeerStatus;
-import se.kth.swim.StateChanges;
-
+import se.kth.swim.msg.Ping;
+import se.sics.kompics.network.Header;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class Pong {
+public class NetIndirectPing extends NetMsg<Ping> {
 
-
-    private final StateChanges<PeerStatus> queue;
-
-    public Pong(StateChanges<PeerStatus> queue) {
-        this.queue = queue;
+    public NetIndirectPing(NatedAddress src, NatedAddress dst) {
+        super(src, dst, new Ping());
     }
 
-    public StateChanges<PeerStatus> getQueue() {
-        return queue;
+    private NetIndirectPing(Header<NatedAddress> header, Ping content) {
+        super(header, content);
+    }
+
+    @Override
+    public NetMsg copyMessage(Header<NatedAddress> newHeader) {
+        return new NetIndirectPing(newHeader, getContent());
     }
 
 }
