@@ -24,8 +24,14 @@ package se.kth.swim.msg;
  */
 public class Status {
     public int receivedPings;
+    public int deadPeers;
+    public int alivePeers;
+    public int suspectedPeers;
     
-    public Status(int receivedPings) {
+    public Status(int receivedPings, int deadPeers, int alivePeers, int suspectedPeers) {
         this.receivedPings = receivedPings;
+        this.deadPeers = deadPeers;
+        this.alivePeers = alivePeers;
+        this.suspectedPeers = suspectedPeers;
     }
 }

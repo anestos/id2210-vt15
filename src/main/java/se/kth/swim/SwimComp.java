@@ -71,7 +71,7 @@ public class SwimComp extends ComponentDefinition {
     private Set<Peer> deadPeers = new HashSet<Peer>();
     private Set<Peer> alivePeers = new HashSet<Peer>();
     private Set<Peer> suspectedPeers = new HashSet<Peer>();
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(100);
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(5);
 
     public SwimComp(SwimInit init) {
         this.selfAddress = init.selfAddress;
@@ -82,7 +82,7 @@ public class SwimComp extends ComponentDefinition {
         for (NatedAddress bootstrap : init.bootstrapNodes) {
             this.alivePeers.add(new Peer(bootstrap));
         }
-
+        
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handlePing, network);
@@ -124,14 +124,13 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetPing event) {
-            log.info("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
+            //log.info("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
             receivedPings++;
             if (alivePeers.add(new Peer(event.getSource()))) {
                 queue.add(new PeerStatus(new Peer(event.getSource()), "alive"));
             }
             trigger(new NetPong(selfAddress, event.getSource(), new Pong(queue)), network);
         }
-
     };
 
     private Handler<NetPong> handlePong = new Handler<NetPong>() {
@@ -139,37 +138,33 @@ public class SwimComp extends ComponentDefinition {
         @Override
         public void handle(NetPong event) {
             cancelPongTimeout(event.getSource());
-            log.info("{} received pong from:{}", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
+           // log.info("{} received pong from:{}", new Object[]{selfAddress.getId(), event.getHeader().getSource()});
 
             // if the peer responding to a Ping is suspected, remove it from the suspected list            
             if (suspectedPeers.remove(new Peer(event.getSource()))) {
                 cancelSuspectTimeout(event.getSource());
-                log.info("removing peer {} from suspected list", new Object[]{event.getSource().getId()});
+                //log.info("removing peer {} from suspected list", new Object[]{event.getSource().getId()});
             }
 
             for (PeerStatus address : event.getContent().getQueue()) {
-                if (address.getPeer().getPeer().getId() != selfAddress.getId()) {
-                    if (address.getStatus().equals("suspected")) {
-
-                        if (suspectedPeers.add(address.getPeer())) {
+                if (!address.getPeer().getPeer().getId().equals(selfAddress.getId())) {       
+                    if (address.getStatus().equals("suspected") && suspectedPeers.add(address.getPeer())) {
                             queue.add(new PeerStatus(address.getPeer(), "suspected"));
-                        }
-                    } else if (address.getStatus().equals("alive")) {
-                        if (alivePeers.add(address.getPeer())) {
+                    } else if (address.getStatus().equals("alive") && alivePeers.add(address.getPeer())) {
                             queue.add(new PeerStatus(address.getPeer(), "alive"));
-                        }
-                    } else if (address.getStatus().equals("dead")) {
-                        if (deadPeers.add(address.getPeer())) {
+                    } else if (address.getStatus().equals("dead") && deadPeers.add(address.getPeer())) {
                             queue.add(new PeerStatus(address.getPeer(), "dead"));
+                            alivePeers.remove(address.getPeer());
+                            suspectedPeers.remove(address.getPeer());
+                    }   
+                } else {
+                    if (address.getStatus().equals("suspected") || address.getStatus().equals("dead")) {
+                        //triger alive, send to all connections
+                        log.info("{} I am alive. Received word from {} that i was {}", new Object[]{selfAddress.getId(), event.getSource().getId(), address.getStatus()});
+                        for (Peer partners : alivePeers) {
+                            trigger(new NetAlive(selfAddress, partners.getPeer()), network);
                         }
                     }
-                } else {
-//                    if (address.getStatus().equals("suspected") || address.getStatus().equals("dead")) {
-//                        //triger alive, send to all connections
-//                        for (Peer partners : alivePeers) {
-//                            trigger(new NetAlive(selfAddress, partners.getPeer()), network);
-//                        }
-//                    }
                 }
             }
         }
@@ -190,10 +185,9 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(PingTimeout event) {
-
             for (Peer partnerAddress : alivePeers) {
-                if (partnerAddress.getPeer().getId() != selfAddress.getId()) {
-                    log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId()});
+                if (!partnerAddress.getPeer().getId().equals(selfAddress.getId())) {
+                    // log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId()});
                     trigger(new NetPing(selfAddress, partnerAddress.getPeer()), network);
                     schedulePongTimeout(partnerAddress.getPeer());
                 }
@@ -237,23 +231,23 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(StatusTimeout event) {
-            log.info("{} sending status to aggregator:{}", new Object[]{selfAddress.getId(), aggregatorAddress});
-            trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings)), network);
+//            log.info("{} sending status to aggregator:{}", new Object[]{selfAddress.getId(), aggregatorAddress});
+            trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.size())), network);
         }
 
     };
 
     private void schedulePongTimeout(NatedAddress peer) {
-        ScheduleTimeout spt = new ScheduleTimeout(500);
+        ScheduleTimeout spt = new ScheduleTimeout(1000);
         PongTimeout sc = new PongTimeout(spt, peer);
         spt.setTimeoutEvent(sc);
         pongTimeoutMap.put(peer, sc.getTimeoutId());
-        log.info("{} Pong Timeout ID:{}", new Object[]{selfAddress.getId(), sc.getTimeoutId()});
+//        log.info("{} Pong Timeout ID:{}", new Object[]{selfAddress.getId(), sc.getTimeoutId()});
         trigger(spt, timer);
     }
 
     private void cancelPongTimeout(NatedAddress peer) {
-        log.info("{} Canceling Pong Timeout {}, timeoutID: {}", new Object[]{selfAddress.getId(), peer.getId(), pongTimeoutMap.get(peer)});
+//        log.info("{} Canceling Pong Timeout {}, timeoutID: {}", new Object[]{selfAddress.getId(), peer.getId(), pongTimeoutMap.get(peer)});
         CancelTimeout cpt = new CancelTimeout(pongTimeoutMap.get(peer));
         pongTimeoutMap.remove(peer);
         trigger(cpt, timer);
