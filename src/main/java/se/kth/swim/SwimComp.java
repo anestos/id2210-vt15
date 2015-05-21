@@ -201,7 +201,7 @@ public class SwimComp extends ComponentDefinition {
         public void handle(PongTimeout event) {
             // suspect a Peer that didn't respond to a Ping and start a Timer to declare it dead after that time
             // if it is not suspected already
-            if (suspectedPeers.add(new Peer(event.getPeer()))) {
+            if (suspectedPeers.add(new Peer(event.getPeer())) && !deadPeers.contains(new Peer(event.getPeer()))) {
                 log.info("{} PONG TIMEOUT, Suspecting peer {}, timeoutid: {}", new Object[]{selfAddress.getId(), event.getPeer(), event.getTimeoutId()});
 
                 queue.add(new PeerStatus(new Peer(event.getPeer()), "suspected"));
