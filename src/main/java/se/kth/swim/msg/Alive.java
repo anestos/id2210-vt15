@@ -18,14 +18,17 @@
  */
 package se.kth.swim.msg;
 
-import java.util.Set;
-import se.kth.swim.Peer;
-
-import se.sics.p2ptoolbox.util.network.NatedAddress;
-
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
 public class Alive {
+   private final int incarnationNumber;
 
+    public Alive(int incarnationNumber) {
+        this.incarnationNumber = incarnationNumber;
+    }
+
+    public int getIncarnationNumber() {
+        return incarnationNumber;
+    }
 }

@@ -67,11 +67,13 @@ public class SwimComp extends ComponentDefinition {
     private Map<NatedAddress, UUID> suspectTimeoutMap = new HashMap<NatedAddress, UUID>();
 
     private int receivedPings = 0;
+    private int incarnationNumber = 0;
+    private Map<Peer, Integer> incarnationMap = new HashMap<Peer, Integer>();
 
     private Set<Peer> deadPeers = new HashSet<Peer>();
     private Set<Peer> alivePeers = new HashSet<Peer>();
     private Set<Peer> suspectedPeers = new HashSet<Peer>();
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(5);
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(4);
 
     public SwimComp(SwimInit init) {
         this.selfAddress = init.selfAddress;
@@ -81,13 +83,14 @@ public class SwimComp extends ComponentDefinition {
 
         for (NatedAddress bootstrap : init.bootstrapNodes) {
             this.alivePeers.add(new Peer(bootstrap));
+            this.incarnationMap.put(new Peer(bootstrap), 0);
+
         }
-        
+
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handlePing, network);
         subscribe(handlePong, network);
-        subscribe(handlerAlive, network);
         subscribe(handlePingTimeout, timer);
         subscribe(handlePongTimeout, timer);
         subscribe(handleSuspectTimeout, timer);
@@ -126,9 +129,12 @@ public class SwimComp extends ComponentDefinition {
         public void handle(NetPing event) {
             //log.info("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
             receivedPings++;
-            if (alivePeers.add(new Peer(event.getSource()))) {
-                queue.add(new PeerStatus(new Peer(event.getSource()), "alive"));
+            if (!incarnationMap.containsKey(new Peer(event.getSource()))) {
+                incarnationMap.put(new Peer(event.getSource()), 0);
+                alivePeers.add(new Peer(event.getSource()));
+                queue.add(new PeerStatus(new Peer(event.getSource()), "alive", incarnationMap.get(new Peer(event.getSource()))));
             }
+
             trigger(new NetPong(selfAddress, event.getSource(), new Pong(queue)), network);
         }
     };
@@ -142,27 +148,54 @@ public class SwimComp extends ComponentDefinition {
 
             // if the peer responding to a Ping is suspected, remove it from the suspected list            
             if (suspectedPeers.remove(new Peer(event.getSource()))) {
+                //queue.remove(new PeerStatus(new Peer(event.getSource()), "suspected"));
+                addToQueue(new Peer(event.getSource()), "alive", incarnationMap.get(new Peer(event.getSource())));
                 cancelSuspectTimeout(event.getSource());
                 //log.info("removing peer {} from suspected list", new Object[]{event.getSource().getId()});
             }
 
             for (PeerStatus address : event.getContent().getQueue()) {
-                if (!address.getPeer().getPeer().getId().equals(selfAddress.getId())) {       
-                    if (address.getStatus().equals("suspected") && suspectedPeers.add(address.getPeer())) {
-                            queue.add(new PeerStatus(address.getPeer(), "suspected"));
-                    } else if (address.getStatus().equals("alive") && alivePeers.add(address.getPeer())) {
-                            queue.add(new PeerStatus(address.getPeer(), "alive"));
-                    } else if (address.getStatus().equals("dead") && deadPeers.add(address.getPeer())) {
-                            queue.add(new PeerStatus(address.getPeer(), "dead"));
-                            alivePeers.remove(address.getPeer());
+                if (!address.getPeer().getPeer().getId().equals(selfAddress.getId())) {
+                    if (!incarnationMap.containsKey(address.getPeer())) {
+                        incarnationMap.put(address.getPeer(), 0);
+                        alivePeers.add(address.getPeer());
+                        addToQueue(address.getPeer(), "alive", 0);
+                    }
+                    if (address.getStatus().equals("suspected")
+                            && !suspectedPeers.contains(address.getPeer())
+                            && !deadPeers.contains(address.getPeer())) {
+
+                        if (address.getIncarnationNumber() >= incarnationMap.get(address.getPeer())) {
+                            addToQueue(address.getPeer(), "suspected", address.getIncarnationNumber());
+                            incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
+                            suspectedPeers.add(address.getPeer());
+                            alivePeers.add(address.getPeer());
+                        }
+                    } else if (address.getStatus().equals("alive") && !alivePeers.contains(address.getPeer())) {
+                        if (address.getIncarnationNumber() > incarnationMap.get(address.getPeer())) {
+                            addToQueue(address.getPeer(), "alive", address.getIncarnationNumber());
+                            incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
                             suspectedPeers.remove(address.getPeer());
-                    }   
+                            deadPeers.remove(address.getPeer());
+                            alivePeers.add(address.getPeer());
+                        }
+
+                    } else if (address.getStatus().equals("dead") && !deadPeers.contains(address.getPeer())) {
+                        addToQueue(address.getPeer(), "dead", address.getIncarnationNumber());
+                        incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
+                        deadPeers.add(address.getPeer());
+                        alivePeers.remove(address.getPeer());
+                        suspectedPeers.remove(address.getPeer());
+                    }
                 } else {
                     if (address.getStatus().equals("suspected") || address.getStatus().equals("dead")) {
                         //triger alive, send to all connections
-                        log.info("{} I am alive. Received word from {} that i was {}", new Object[]{selfAddress.getId(), event.getSource().getId(), address.getStatus()});
-                        for (Peer partners : alivePeers) {
-                            trigger(new NetAlive(selfAddress, partners.getPeer()), network);
+                        if (address.getIncarnationNumber() <= incarnationNumber) {
+                            incarnationNumber++;
+                            log.info("{} I am alive. Received word from {} that i was {}", new Object[]{receivedPings, event.getSource().getId(), address.getStatus()});
+                            for (Peer partners : alivePeers) {
+                                trigger(new NetAlive(selfAddress, partners.getPeer(), incarnationNumber), network);
+                            }
                         }
                     }
                 }
@@ -174,9 +207,13 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetAlive event) {
-            if (suspectedPeers.remove(new Peer(event.getSource()))
-                    || deadPeers.remove(new Peer(event.getSource()))) {
-                queue.add(new PeerStatus(new Peer(event.getSource()), "alive"));
+            if (event.getContent().getIncarnationNumber() > incarnationMap.get(new Peer(event.getSource()))) {
+                suspectedPeers.remove(new Peer(event.getSource()));
+                deadPeers.remove(new Peer(event.getSource()));
+                alivePeers.add(new Peer(event.getSource()));
+                incarnationMap.replace(new Peer(event.getSource()), event.getContent().getIncarnationNumber());
+                addToQueue(new Peer(event.getSource()), "alive", event.getContent().getIncarnationNumber());
+
             }
         }
     };
@@ -187,7 +224,9 @@ public class SwimComp extends ComponentDefinition {
         public void handle(PingTimeout event) {
             for (Peer partnerAddress : alivePeers) {
                 if (!partnerAddress.getPeer().getId().equals(selfAddress.getId())) {
-                    // log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId()});
+                    if (selfAddress.getId() == 10) {
+                        log.info("{} sending ping to partner:{}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId()});
+                    }
                     trigger(new NetPing(selfAddress, partnerAddress.getPeer()), network);
                     schedulePongTimeout(partnerAddress.getPeer());
                 }
@@ -201,10 +240,10 @@ public class SwimComp extends ComponentDefinition {
         public void handle(PongTimeout event) {
             // suspect a Peer that didn't respond to a Ping and start a Timer to declare it dead after that time
             // if it is not suspected already
-            if (suspectedPeers.add(new Peer(event.getPeer())) && !deadPeers.contains(new Peer(event.getPeer()))) {
-                log.info("{} PONG TIMEOUT, Suspecting peer {}, timeoutid: {}", new Object[]{selfAddress.getId(), event.getPeer(), event.getTimeoutId()});
-
-                queue.add(new PeerStatus(new Peer(event.getPeer()), "suspected"));
+            if (!suspectedPeers.contains(new Peer(event.getPeer())) && !deadPeers.contains(new Peer(event.getPeer()))) {
+                suspectedPeers.add(new Peer(event.getPeer()));
+                log.info("{} PONG TIMEOUT, Suspecting peer {}, pings: {}", new Object[]{selfAddress.getId(), event.getPeer(), receivedPings});
+                addToQueue(new Peer(event.getPeer()), "suspected", incarnationMap.get(new Peer(event.getPeer())));
                 scheduleSuspectTimeout(event.getPeer());
             }
             pongTimeoutMap.remove(event.getPeer());
@@ -220,7 +259,7 @@ public class SwimComp extends ComponentDefinition {
             deadPeers.add(new Peer(event.getPeer()));
             alivePeers.remove(new Peer(event.getPeer()));
             suspectedPeers.remove(new Peer(event.getPeer()));
-            queue.add(new PeerStatus(new Peer(event.getPeer()), "dead"));
+            addToQueue(new Peer(event.getPeer()), "dead", incarnationMap.get(new Peer(event.getPeer())));
             suspectTimeoutMap.remove(event.getPeer());
             cancelPongTimeout(event.getPeer());
 
@@ -282,7 +321,7 @@ public class SwimComp extends ComponentDefinition {
     }
 
     private void schedulePeriodicStatus() {
-        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(10000, 10000);
+        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(1000, 1000);
         StatusTimeout sc = new StatusTimeout(spt);
         spt.setTimeoutEvent(sc);
         statusTimeoutId = sc.getTimeoutId();
@@ -350,5 +389,20 @@ public class SwimComp extends ComponentDefinition {
             return peer;
         }
 
+    }
+
+    public void addToQueue(Peer peer, String status, int number) {
+        // CHECK THIS
+        if (selfAddress.getId() == 16 ){
+            log.info("CHECK {}", new Object[]{queue});
+        }
+        
+        queue.remove(new PeerStatus(peer, "alive", number));
+        queue.remove(new PeerStatus(peer, "dead", number));
+        queue.remove(new PeerStatus(peer, "suspected", number));
+        queue.add(new PeerStatus(peer, status, number));
+       if (selfAddress.getId() == 16 ){
+            log.info("CHECK2 {}", new Object[]{queue});
+        }
     }
 }

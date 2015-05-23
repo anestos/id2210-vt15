@@ -22,21 +22,50 @@ package se.kth.swim;
  *
  * @author Nikos
  */
-public class PeerStatus {
-        private Peer peer;
-        private String status; 
+public class PeerStatus implements Comparable<PeerStatus> {
 
-	
-	public PeerStatus(Peer peer, String status)  {
-		this.peer = peer;
-                this.status = status;
-	}
-        
-        public String getStatus(){
-            return status;
+    private Peer peer;
+    private String status;
+    private int incarnationNumber;
+
+    public PeerStatus(Peer peer, String status, int incarnationNumber) {
+        this.peer = peer;
+        this.status = status;
+        this.incarnationNumber = incarnationNumber;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public Peer getPeer() {
+        return peer;
+    }
+
+    public int getIncarnationNumber() {
+        return incarnationNumber;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj instanceof PeerStatus) {
+            PeerStatus m = (PeerStatus) obj;
+            return m.peer.equals(peer) && m.status.equals(status);
         }
-        
-        public Peer getPeer(){
-            return peer;
-        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        return peer.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return String.format(peer.toString() + "[" + status.toString() + "]");
+    }
+
+    public int compareTo(PeerStatus o) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
 }
