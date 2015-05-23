@@ -132,7 +132,10 @@ public class SwimComp extends ComponentDefinition {
             if (!incarnationMap.containsKey(new Peer(event.getSource()))) {
                 incarnationMap.put(new Peer(event.getSource()), 0);
                 alivePeers.add(new Peer(event.getSource()));
-                queue.add(new PeerStatus(new Peer(event.getSource()), "alive", incarnationMap.get(new Peer(event.getSource()))));
+                addToQueue(new Peer(event.getSource()), "alive", incarnationMap.get(new Peer(event.getSource())));
+            } else if (deadPeers.remove(new Peer(event.getSource()))) {
+                alivePeers.add(new Peer(event.getSource()));
+                addToQueue(new Peer(event.getSource()), "alive", incarnationMap.get(new Peer(event.getSource())));
             }
 
             trigger(new NetPong(selfAddress, event.getSource(), new Pong(queue)), network);
@@ -192,7 +195,7 @@ public class SwimComp extends ComponentDefinition {
                         //triger alive, send to all connections
                         if (address.getIncarnationNumber() <= incarnationNumber) {
                             incarnationNumber++;
-                            log.info("{} I am alive. Received word from {} that i was {}", new Object[]{receivedPings, event.getSource().getId(), address.getStatus()});
+                            //  log.info("{} I am alive. Received word from {} that i was {}", new Object[]{receivedPings, event.getSource().getId(), address.getStatus()});
                             for (Peer partners : alivePeers) {
                                 trigger(new NetAlive(selfAddress, partners.getPeer(), incarnationNumber), network);
                             }
@@ -392,17 +395,9 @@ public class SwimComp extends ComponentDefinition {
     }
 
     public void addToQueue(Peer peer, String status, int number) {
-        // CHECK THIS
-        if (selfAddress.getId() == 16 ){
-            log.info("CHECK {}", new Object[]{queue});
-        }
-        
         queue.remove(new PeerStatus(peer, "alive", number));
         queue.remove(new PeerStatus(peer, "dead", number));
         queue.remove(new PeerStatus(peer, "suspected", number));
         queue.add(new PeerStatus(peer, status, number));
-       if (selfAddress.getId() == 16 ){
-            log.info("CHECK2 {}", new Object[]{queue});
-        }
     }
 }

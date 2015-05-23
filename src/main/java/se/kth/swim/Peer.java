@@ -44,7 +44,7 @@ public class Peer implements Comparable<Peer>{
 	public boolean equals(Object obj) {
 		if (obj instanceof Peer) {
 			Peer m = (Peer) obj;
-			return m.peer == peer;
+			return m.peer.getId().equals(peer.getId());
 		}
 		return false;
 	}

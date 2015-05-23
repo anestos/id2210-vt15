@@ -50,7 +50,7 @@ public class PeerStatus implements Comparable<PeerStatus> {
     public boolean equals(Object obj) {
         if (obj instanceof PeerStatus) {
             PeerStatus m = (PeerStatus) obj;
-            return m.peer.equals(peer) && m.status.equals(status);
+            return m.peer.getPeer().equals(peer.getPeer()) && m.status.equals(status);
         }
         return false;
     }
