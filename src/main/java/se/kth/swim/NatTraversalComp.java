@@ -55,7 +55,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
     public NatTraversalComp(NatTraversalInit init) {
         this.selfAddress = init.selfAddress;
-       // log.info("{} {} initiating...", new Object[]{selfAddress.getId(), (selfAddress.isOpen() ? "OPEN" : "NATED")});
+        log.info("{} {} initiating...", new Object[]{selfAddress.getId(), (selfAddress.isOpen() ? "OPEN" : "NATED")});
 
         this.rand = new Random(init.seed);
         subscribe(handleStart, control);
@@ -69,7 +69,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(Start event) {
-         //   log.info("{} starting...", new Object[]{selfAddress.getId()});
+            log.info("{} starting...", new Object[]{selfAddress.getId()});
         }
 
     };
@@ -77,7 +77,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(Stop event) {
-          //  log.info("{} stopping...", new Object[]{selfAddress.getId()});
+            log.info("{} stopping...", new Object[]{selfAddress.getId()});
         }
 
     };
@@ -86,7 +86,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetMsg<Object> msg) {
-         //   log.trace("{} received msg:{}", new Object[]{selfAddress.getId(), msg});
+            log.trace("{} received msg:{}", new Object[]{selfAddress.getId(), msg});
             Header<NatedAddress> header = msg.getHeader();
             if (header instanceof SourceHeader) {
                 if (!selfAddress.isOpen()) {
@@ -94,12 +94,12 @@ public class NatTraversalComp extends ComponentDefinition {
                 }
                 SourceHeader<NatedAddress> sourceHeader = (SourceHeader<NatedAddress>) header;
                 if (sourceHeader.getActualDestination().getParents().contains(selfAddress)) {
-             //       log.info("{} relaying message for:{}", new Object[]{selfAddress.getId(), sourceHeader.getSource()});
+//                    log.info("{} relaying message for:{}", new Object[]{selfAddress.getId(), sourceHeader.getSource()});
                     RelayHeader<NatedAddress> relayHeader = sourceHeader.getRelayHeader();
                     trigger(msg.copyMessage(relayHeader), network);
                     return;
                 } else {
-//                    log.warn("{} received weird relay message:{} - dropping it", new Object[]{selfAddress.getId(), msg});
+                    log.warn("{} received weird relay message:{} - dropping it", new Object[]{selfAddress.getId(), msg});
                     return;
                 }
             } else if (header instanceof RelayHeader) {
@@ -124,7 +124,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetMsg<Object> msg) {
-//            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
+            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
             Header<NatedAddress> header = msg.getHeader();
             if(header.getDestination().isOpen()) {
 //                log.info("{} sending direct message:{} to:{}", new Object[]{selfAddress.getId(), msg, header.getDestination()});
@@ -147,7 +147,8 @@ public class NatTraversalComp extends ComponentDefinition {
     private Handler handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
-//            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
+            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
+            log.info("{} my parent is {}", selfAddress.getId(), selfAddress.getParents());
             //use this to change parent in case it died
         }
     };

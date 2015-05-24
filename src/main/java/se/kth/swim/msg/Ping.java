@@ -19,8 +19,22 @@
 
 package se.kth.swim.msg;
 
+import se.kth.swim.PeerStatus;
+import se.kth.swim.StateChanges;
+
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
 public class Ping {
+    
+    private final StateChanges<PeerStatus> queue;
+
+    public Ping(StateChanges<PeerStatus> queue) {
+        this.queue = queue;
+    }
+
+    public StateChanges<PeerStatus> getQueue() {
+        return queue;
+    }
+
 }

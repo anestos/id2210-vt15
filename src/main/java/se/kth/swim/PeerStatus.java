@@ -27,11 +27,13 @@ public class PeerStatus implements Comparable<PeerStatus> {
     private Peer peer;
     private String status;
     private int incarnationNumber;
+    private int lamdaCounter;
 
-    public PeerStatus(Peer peer, String status, int incarnationNumber) {
+    public PeerStatus(Peer peer, String status, int incarnationNumber, int lamdaCounter) {
         this.peer = peer;
         this.status = status;
         this.incarnationNumber = incarnationNumber;
+        this.lamdaCounter = lamdaCounter;
     }
 
     public String getStatus() {
@@ -40,6 +42,15 @@ public class PeerStatus implements Comparable<PeerStatus> {
 
     public Peer getPeer() {
         return peer;
+    }
+
+    public int getLamdaCounter() {
+        return lamdaCounter;
+    }
+    
+    public int increaseLamdaCounter(){
+        lamdaCounter++;
+        return lamdaCounter;
     }
 
     public int getIncarnationNumber() {
@@ -62,7 +73,7 @@ public class PeerStatus implements Comparable<PeerStatus> {
 
     @Override
     public String toString() {
-        return String.format(peer.toString() + "[" + status.toString() +" | "+incarnationNumber+ "]");
+        return String.format(peer.toString() + "[" + status.toString() + " | " + incarnationNumber + "]");
     }
 
     public int compareTo(PeerStatus o) {
