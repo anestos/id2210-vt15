@@ -18,24 +18,19 @@
  */
 package se.kth.swim.msg;
 
-import java.util.Set;
-import se.kth.swim.Peer;
-
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
 public class IndirectPing {
+   private final NatedAddress original;
 
-    public Peer suspected;
-
-    public IndirectPing(Peer suspected) {
-        this.suspected = suspected;
+    public IndirectPing(NatedAddress original) {
+        this.original = original;
     }
 
-    public Peer getSuspected() {
-        return suspected;
+    public NatedAddress getOriginal() {
+        return original;
     }
-
 }

@@ -18,30 +18,24 @@
  */
 package se.kth.swim.msg;
 
-import se.kth.swim.PeerStatus;
-import se.kth.swim.StateChanges;
+import java.util.Set;
+import se.kth.swim.Peer;
 
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class IndirectPingAck {
+public class IndirectPingRequest {
 
-    private final StateChanges<PeerStatus> queue;
-    private final NatedAddress from;
+    public NatedAddress suspected;
 
-    public IndirectPingAck(StateChanges<PeerStatus> queue, NatedAddress from) {
-        this.queue = queue;
-        this.from = from;
+    public IndirectPingRequest(NatedAddress suspected) {
+        this.suspected = suspected;
     }
 
-    public StateChanges<PeerStatus> getQueue() {
-        return queue;
-    }
-
-    public NatedAddress getFrom() {
-        return from;
+    public NatedAddress getSuspected() {
+        return suspected;
     }
 
 }

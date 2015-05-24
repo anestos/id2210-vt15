@@ -18,6 +18,8 @@
  */
 package se.kth.swim.msg;
 
+import java.util.Set;
+import se.kth.swim.Peer;
 import se.kth.swim.PeerStatus;
 import se.kth.swim.StateChanges;
 
@@ -26,22 +28,20 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class IndirectPingAck {
-
+public class IndirectPong {
+    
     private final StateChanges<PeerStatus> queue;
-    private final NatedAddress from;
+   private final NatedAddress original;
 
-    public IndirectPingAck(StateChanges<PeerStatus> queue, NatedAddress from) {
+    public IndirectPong(StateChanges<PeerStatus> queue, NatedAddress original) {
         this.queue = queue;
-        this.from = from;
+        this.original = original;
     }
 
     public StateChanges<PeerStatus> getQueue() {
         return queue;
     }
-
-    public NatedAddress getFrom() {
-        return from;
+    public NatedAddress getOriginal() {
+        return original;
     }
-
 }

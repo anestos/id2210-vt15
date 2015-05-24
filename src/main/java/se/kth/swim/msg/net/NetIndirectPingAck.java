@@ -18,20 +18,20 @@
  */
 package se.kth.swim.msg.net;
 
-import se.kth.swim.msg.Ping;
+import se.kth.swim.msg.IndirectPingAck;
 import se.sics.kompics.network.Header;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class NetIndirectPingAck extends NetMsg<Ping> {
+public class NetIndirectPingAck extends NetMsg<IndirectPingAck> {
 
-    public NetIndirectPingAck(NatedAddress src, NatedAddress dst) {
-        super(src, dst, new Ping());
+    public NetIndirectPingAck(NatedAddress src, NatedAddress dst, IndirectPingAck ack) {
+        super(src, dst, ack);
     }
 
-    private NetIndirectPingAck(Header<NatedAddress> header, Ping content) {
+    private NetIndirectPingAck(Header<NatedAddress> header, IndirectPingAck content) {
         super(header, content);
     }
 

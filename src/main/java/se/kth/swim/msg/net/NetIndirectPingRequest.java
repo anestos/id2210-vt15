@@ -16,32 +16,28 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-package se.kth.swim.msg;
+package se.kth.swim.msg.net;
 
-import se.kth.swim.PeerStatus;
-import se.kth.swim.StateChanges;
-
+import se.kth.swim.msg.IndirectPingRequest;
+import se.sics.kompics.network.Header;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class IndirectPingAck {
+public class NetIndirectPingRequest extends NetMsg<IndirectPingRequest> {
 
-    private final StateChanges<PeerStatus> queue;
-    private final NatedAddress from;
-
-    public IndirectPingAck(StateChanges<PeerStatus> queue, NatedAddress from) {
-        this.queue = queue;
-        this.from = from;
+    public NetIndirectPingRequest(NatedAddress src, NatedAddress dst, NatedAddress toPing) {
+        super(src, dst, new IndirectPingRequest(toPing));
     }
 
-    public StateChanges<PeerStatus> getQueue() {
-        return queue;
+    private NetIndirectPingRequest(Header<NatedAddress> header, IndirectPingRequest content) {
+        super(header, content);
     }
 
-    public NatedAddress getFrom() {
-        return from;
+    @Override
+    public NetMsg copyMessage(Header<NatedAddress> newHeader) {
+        return new NetIndirectPingRequest(newHeader, getContent());
     }
 
 }
