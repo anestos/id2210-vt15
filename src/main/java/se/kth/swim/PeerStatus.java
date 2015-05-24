@@ -62,7 +62,7 @@ public class PeerStatus implements Comparable<PeerStatus> {
 
     @Override
     public String toString() {
-        return String.format(peer.toString() + "[" + status.toString() + "]");
+        return String.format(peer.toString() + "[" + status.toString() +" | "+incarnationNumber+ "]");
     }
 
     public int compareTo(PeerStatus o) {
