@@ -20,6 +20,7 @@ package se.kth.swim;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -441,9 +442,11 @@ public class SwimComp extends ComponentDefinition {
     }
 
     public void cleanUpQueue() {
-        for (PeerStatus address : queue) {
-            if (address.increaseLamdaCounter()> lamda){
-                queue.remove(address);
+        Iterator<PeerStatus> iter = queue.iterator();
+        while (iter.hasNext()) {
+            PeerStatus state = iter.next();
+            if (state.increaseLamdaCounter() > lamda) {
+                iter.remove();
             };
         }
     }

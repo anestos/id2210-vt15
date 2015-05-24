@@ -253,21 +253,21 @@ public class SwimScenario {
                 StochasticProcess startPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(10, startNodeOp, new GenIntSequentialDistribution(new Integer[]{10,20,12,14,16,22,24,26,28,30}));
+                        raise(11, startNodeOp, new GenIntSequentialDistribution(new Integer[]{10,20,11,12,14,16,22,24,26,28,30}));
                     }
                 };
                 
                 StochasticProcess startPeers2 = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1, startNodeOp, new GenIntSequentialDistribution(new Integer[]{12}));
+                        raise(1, startNodeOp, new GenIntSequentialDistribution(new Integer[]{20}));
                     }
                 };
 
                 StochasticProcess killPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1, killNodeOp, new GenIntSequentialDistribution(new Integer[]{12}));
+                        raise(1, killNodeOp, new GenIntSequentialDistribution(new Integer[]{20}));
                     }
                 };
 
@@ -295,9 +295,9 @@ public class SwimScenario {
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
                 killPeers.startAfterTerminationOf(10000, startPeers);
-                startPeers2.startAfterTerminationOf(10000, killPeers);
+//                startPeers2.startAfterTerminationOf(10000, killPeers);
 //               stopPeers.startAfterTerminationOf(10000, startPeers);
-                deadLinks1.startAfterTerminationOf(10000,startPeers2);
+//                deadLinks1.startAfterTerminationOf(10000,startPeers2);
 //                disconnectedNodes1.startAfterTerminationOf(15000, startPeers2);
                 fetchSimulationResult.startAfterTerminationOf(100000, startPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
