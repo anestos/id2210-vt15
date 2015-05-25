@@ -18,6 +18,8 @@
  */
 package se.kth.swim;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -29,9 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.kth.swim.croupier.CroupierPort;
 import se.kth.swim.croupier.msg.CroupierSample;
+import se.kth.swim.croupier.util.Container;
 import se.kth.swim.msg.net.NetHeartbeatReply;
 import se.kth.swim.msg.net.NetHeartbeat;
 import se.kth.swim.msg.net.NetMsg;
+import se.kth.swim.msg.net.NetParentChange;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Init;
@@ -46,7 +50,10 @@ import se.sics.kompics.timer.SchedulePeriodicTimeout;
 import se.sics.kompics.timer.ScheduleTimeout;
 import se.sics.kompics.timer.Timeout;
 import se.sics.kompics.timer.Timer;
+import se.sics.p2ptoolbox.util.network.NatType;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
+import se.sics.p2ptoolbox.util.network.impl.BasicAddress;
+import se.sics.p2ptoolbox.util.network.impl.BasicNatedAddress;
 import se.sics.p2ptoolbox.util.network.impl.RelayHeader;
 import se.sics.p2ptoolbox.util.network.impl.SourceHeader;
 
@@ -62,12 +69,24 @@ public class NatTraversalComp extends ComponentDefinition {
     private Positive<CroupierPort> croupier = requires(CroupierPort.class);
     private Positive<Timer> timer = requires(Timer.class);
 
-    private final NatedAddress selfAddress;
+    private NatedAddress selfAddress;
     private final Random rand;
     private UUID heartbeatTimeoutId;
     private Map<NatedAddress, UUID> heartbeatTimeoutMap = new HashMap<NatedAddress, UUID>();
     private boolean foundDeadParent = false;
     private Set<NatedAddress> deadParents = new HashSet<NatedAddress>();
+
+    private final int maximumParents = 3;
+
+    private static InetAddress localHost;
+
+    static {
+        try {
+            localHost = InetAddress.getByName("127.0.0.1");
+        } catch (UnknownHostException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
 
     public NatTraversalComp(NatTraversalInit init) {
         this.selfAddress = init.selfAddress;
@@ -118,7 +137,7 @@ public class NatTraversalComp extends ComponentDefinition {
                 }
                 SourceHeader<NatedAddress> sourceHeader = (SourceHeader<NatedAddress>) header;
                 if (sourceHeader.getActualDestination().getParents().contains(selfAddress)) {
-//                    log.info("{} relaying message for:{}", new Object[]{selfAddress.getId(), sourceHeader.getSource()});
+                    log.info("{} relaying message for:{}", new Object[]{selfAddress.getId(), sourceHeader.getSource()});
                     RelayHeader<NatedAddress> relayHeader = sourceHeader.getRelayHeader();
                     trigger(msg.copyMessage(relayHeader), network);
                     return;
@@ -131,12 +150,12 @@ public class NatTraversalComp extends ComponentDefinition {
                     throw new RuntimeException("relay header msg received on open node - nat traversal logic error");
                 }
                 RelayHeader<NatedAddress> relayHeader = (RelayHeader<NatedAddress>) header;
-//                log.info("{} delivering relayed message:{} from:{}", new Object[]{selfAddress.getId(), msg, relayHeader.getActualSource()});
+                log.info("{} delivering relayed message:{} from:{}", new Object[]{selfAddress.getId(), msg, relayHeader.getActualSource()});
                 Header<NatedAddress> originalHeader = relayHeader.getActualHeader();
                 trigger(msg.copyMessage(originalHeader), local);
                 return;
             } else {
-//                log.info("{} delivering direct message:{} from:{}", new Object[]{selfAddress.getId(), msg, header.getSource()});
+                log.info("{} delivering direct message:{} from:{}", new Object[]{selfAddress.getId(), msg, header.getSource()});
                 trigger(msg, local);
                 return;
             }
@@ -148,7 +167,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetMsg<Object> msg) {
-            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
+//            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
             Header<NatedAddress> header = msg.getHeader();
             if (header.getDestination().isOpen()) {
 //                log.info("{} sending direct message:{} to:{}", new Object[]{selfAddress.getId(), msg, header.getDestination()});
@@ -171,15 +190,28 @@ public class NatTraversalComp extends ComponentDefinition {
     private Handler handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
-            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
-            log.info("{} my parent is {}", selfAddress.getId(), selfAddress.getParents());
+//            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
             //use this to change parent in case it died
             if (foundDeadParent) {
-                for (NatedAddress deadparent : deadParents) {
-                    selfAddress.getParents().remove(deadparent);
+                Set<NatedAddress> parentPool = new HashSet<NatedAddress>();
+                Iterator<Container<NatedAddress, Object>> it = event.publicSample.iterator();
+                while (it.hasNext()) {
+                    parentPool.add(it.next().getSource());
                 }
-                log.info("{} my new parent list {}", selfAddress.getId(), selfAddress.getParents());
+                Set<NatedAddress> newParents = new HashSet<NatedAddress>();
+                for (NatedAddress deadparent : deadParents) {
+                    parentPool.remove(deadparent);
+                }
+                for (int i = 0; i <= maximumParents; i++) {
+                    newParents.add(randomNode(parentPool));
+                }
+                int myid = selfAddress.getId();
+
+                selfAddress = new BasicNatedAddress(new BasicAddress(localHost, 12345, myid), NatType.NAT, newParents);
+
                 foundDeadParent = false;
+                trigger(new NetParentChange(selfAddress, selfAddress), local);
+                schedulePeriodicHeartbeat();
             }
         }
     };
@@ -188,11 +220,10 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(HeartbeatTimeout event) {
-            log.info("{} sending heartbeats", selfAddress.getId());
             for (NatedAddress open : selfAddress.getParents()) {
                 trigger(new NetHeartbeat(selfAddress, open), network);
                 scheduleHeartbeatReplyTimeout(open);
-                log.info("{} sending heartbeat to {}", selfAddress.getId(), open.getId());
+                log.info("{} sending heartbeat to {} my parents: {}", new Object[]{selfAddress.getId(), open.getId(), selfAddress.getParents()});
             }
         }
     };
@@ -201,9 +232,10 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(HeartbeatReplyTimeout event) {
-            log.info("{} !!!!! {} is deadParent", selfAddress.getId(), event.getParent().getId());
+            log.info("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
             foundDeadParent = true;
             deadParents.add(event.getParent());
+            cancelPeriodicHeartbeat();
         }
     };
 
@@ -212,7 +244,6 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(NetHeartbeat event) {
             log.info("{} sending heartbeatReply to {}", selfAddress.getId(), event.getSource());
-
             trigger(new NetHeartbeatReply(selfAddress, event.getSource()), network);
         }
     };
@@ -221,7 +252,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetHeartbeatReply event) {
-            log.info("{} got reply, canceling replytimeout", selfAddress.getId());
+            log.info("{} got reply from {}, canceling replytimeout", selfAddress.getId(), event.getSource().getId());
             cancelHeartbeatReplyTimeout(event.getSource());
 
         }
@@ -249,18 +280,19 @@ public class NatTraversalComp extends ComponentDefinition {
     }
 
     private void schedulePeriodicHeartbeat() {
-        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(500, 500);
+        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(5000, 5000);
         HeartbeatTimeout sc = new HeartbeatTimeout(spt);
         spt.setTimeoutEvent(sc);
         heartbeatTimeoutId = sc.getTimeoutId();
         trigger(spt, timer);
-        log.info("{} started periodic Heartbeat {}", new Object[]{selfAddress.getId(), heartbeatTimeoutId});
+//        log.info("{} started periodic Heartbeat {}", new Object[]{selfAddress.getId(), heartbeatTimeoutId});
     }
 
     private void cancelPeriodicHeartbeat() {
         CancelTimeout cpt = new CancelTimeout(heartbeatTimeoutId);
         trigger(cpt, timer);
         heartbeatTimeoutId = null;
+
     }
 
     private static class HeartbeatTimeout extends Timeout {
@@ -271,7 +303,7 @@ public class NatTraversalComp extends ComponentDefinition {
     }
 
     private void scheduleHeartbeatReplyTimeout(NatedAddress peer) {
-        ScheduleTimeout spt = new ScheduleTimeout(10000);
+        ScheduleTimeout spt = new ScheduleTimeout(1000);
         HeartbeatReplyTimeout sc = new HeartbeatReplyTimeout(spt, peer);
         spt.setTimeoutEvent(sc);
         heartbeatTimeoutMap.put(peer, sc.getTimeoutId());

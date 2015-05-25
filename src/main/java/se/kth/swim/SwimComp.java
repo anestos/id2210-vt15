@@ -40,6 +40,7 @@ import se.kth.swim.msg.net.NetIndirectPing;
 import se.kth.swim.msg.net.NetIndirectPong;
 import se.kth.swim.msg.IndirectPong;
 import se.kth.swim.msg.Ping;
+import se.kth.swim.msg.net.NetParentChange;
 import se.sics.kompics.ComponentDefinition;
 import se.sics.kompics.Handler;
 import se.sics.kompics.Init;
@@ -63,7 +64,7 @@ public class SwimComp extends ComponentDefinition {
     private Positive<Network> network = requires(Network.class);
     private Positive<Timer> timer = requires(Timer.class);
 
-    private final NatedAddress selfAddress;
+    private NatedAddress selfAddress;
     private final Set<NatedAddress> bootstrapNodes;
     private final NatedAddress aggregatorAddress;
 
@@ -112,6 +113,8 @@ public class SwimComp extends ComponentDefinition {
         subscribe(handleIndirectPong, network);
         subscribe(handleIndirectPingAck, network);
         subscribe(handleIndirectTimeout, timer);
+
+        subscribe(handleParentChange, network);
 
     }
 
@@ -179,12 +182,25 @@ public class SwimComp extends ComponentDefinition {
         }
     };
 
+    private Handler<NetParentChange> handleParentChange = new Handler<NetParentChange>() {
+
+        @Override
+        public void handle(NetParentChange event) {
+            selfAddress = event.getSource();
+            log.info("{} PARENT CHANGED", new Object[]{selfAddress.getParents()});
+            addToQueue(new Peer(selfAddress), "parentChange", incarnationNumber);
+        }
+    };
+
     private Handler<PingTimeout> handlePingTimeout = new Handler<PingTimeout>() {
 
         @Override
         public void handle(PingTimeout event) {
             cleanUpQueue();
             for (Peer partnerAddress : alivePeers) {
+                if (!partnerAddress.getPeer().isOpen()) {
+                    log.info("{} SENDING PING TO {} WHICH HAS PARENTS {}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId(), partnerAddress.getPeer().getParents()});
+                }
                 if (!partnerAddress.getPeer().getId().equals(selfAddress.getId())) {
                     trigger(new NetPing(selfAddress, partnerAddress.getPeer(), new Ping(queue)), network);
                     schedulePongTimeout(partnerAddress.getPeer());
@@ -199,6 +215,7 @@ public class SwimComp extends ComponentDefinition {
         public void handle(PongTimeout event) {
             // send indirect ping
             log.info("{} PONG TIMEOUT, requesting indirect for  {}, pings: {}", new Object[]{selfAddress.getId(), event.getPeer(), receivedPings});
+            log.info("{} PARENTS OF {} ARE {}", new Object[]{selfAddress.getId(), event.getPeer().getId(), event.getPeer().getParents()});
             scheduleIndirectTimeout(event.getPeer());
             int i = 0;
             for (Peer peer : alivePeers) {
@@ -271,11 +288,11 @@ public class SwimComp extends ComponentDefinition {
         public void handle(DeclareDeadTimeout event) {
             // declare the peer dead
             log.info("{} Declaring peer {} Dead!", new Object[]{selfAddress.getId(), event.getPeer()});
+            cancelPongTimeout(event.getPeer());
             deadPeers.add(new Peer(event.getPeer()));
             alivePeers.remove(new Peer(event.getPeer()));
             suspectedPeers.remove(new Peer(event.getPeer()));
             addToQueue(new Peer(event.getPeer()), "dead", incarnationMap.get(new Peer(event.getPeer())));
-            cancelPongTimeout(event.getPeer());
             suspectTimeoutMap.remove(event.getPeer());
 
         }
@@ -391,7 +408,7 @@ public class SwimComp extends ComponentDefinition {
 
     private static class PongTimeout extends Timeout {
 
-        private NatedAddress peer;
+        private final NatedAddress peer;
 
         public PongTimeout(ScheduleTimeout request, NatedAddress peer) {
             super(request);
@@ -406,7 +423,7 @@ public class SwimComp extends ComponentDefinition {
 
     private static class DeclareDeadTimeout extends Timeout {
 
-        private NatedAddress peer;
+        private final NatedAddress peer;
 
         public DeclareDeadTimeout(ScheduleTimeout request, NatedAddress peer) {
             super(request);
@@ -421,7 +438,7 @@ public class SwimComp extends ComponentDefinition {
 
     private static class IndirectTimeout extends Timeout {
 
-        private NatedAddress peer;
+        private final NatedAddress peer;
 
         public IndirectTimeout(ScheduleTimeout request, NatedAddress peer) {
             super(request);
@@ -435,6 +452,7 @@ public class SwimComp extends ComponentDefinition {
     }
 
     public void addToQueue(Peer peer, String status, int number) {
+        queue.remove(new PeerStatus(peer, "parentChange", number, 0));
         queue.remove(new PeerStatus(peer, "alive", number, 0));
         queue.remove(new PeerStatus(peer, "dead", number, 0));
         queue.remove(new PeerStatus(peer, "suspected", number, 0));
@@ -447,7 +465,7 @@ public class SwimComp extends ComponentDefinition {
             PeerStatus state = iter.next();
             if (state.increaseLamdaCounter() > lamda) {
                 iter.remove();
-            };
+            }
         }
     }
 
@@ -471,16 +489,22 @@ public class SwimComp extends ComponentDefinition {
                     }
                 } else if (address.getStatus().equals("alive")) {
                     if (address.getIncarnationNumber() > incarnationMap.get(address.getPeer())) {
+                        if (suspectTimeoutMap.containsKey(address.getPeer().getPeer())) {
+                            cancelSuspectTimeout(address.getPeer().getPeer());
+                        }
                         addToQueue(address.getPeer(), "alive", address.getIncarnationNumber());
                         incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
                         suspectedPeers.remove(address.getPeer());
                         deadPeers.remove(address.getPeer());
                         alivePeers.add(address.getPeer());
-                        if (suspectTimeoutMap.containsKey(address.getPeer().getPeer())) {
-                            cancelSuspectTimeout(address.getPeer().getPeer());
-                        }
                     }
+                } else if (address.getStatus().equals("parentChange")) {
+                    log.info("{} KNOWLEDGE ABOUT PARENTS OF {} RECEIVED: {}", new Object[]{selfAddress.getId(), address.getPeer().getPeer().getId(), address.getPeer().getPeer().getParents()});
 
+                    if (checkIfParentsAreUpdated(address.getPeer())) {
+                        log.info("{} CHANGED PARENTS OF {}", new Object[]{selfAddress.getId(), address.getPeer().getPeer().getId()});
+                        addToQueue(address.getPeer(), "parentChange", address.getIncarnationNumber());
+                    }
                 } else if (address.getStatus().equals("dead") && !deadPeers.contains(address.getPeer())) {
                     addToQueue(address.getPeer(), "dead", address.getIncarnationNumber());
                     incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
@@ -499,5 +523,44 @@ public class SwimComp extends ComponentDefinition {
                 }
             }
         }
+    }
+
+    public boolean checkIfParentsAreUpdated(Peer peerToCheck) {
+        boolean checkDead;
+        boolean checkAlive;
+        boolean checkSuspected;
+        checkDead = parentChangeToSet(peerToCheck, deadPeers);
+        checkAlive = parentChangeToSet(peerToCheck, alivePeers);
+        checkSuspected = parentChangeToSet(peerToCheck, suspectedPeers);
+
+        return checkDead || checkAlive || checkSuspected;
+    }
+
+    public boolean parentChangeToSet(Peer peerToCheck, Set<Peer> set) {
+        boolean check = false;
+
+        if (set.contains(peerToCheck)) {
+            Iterator<Peer> iter = set.iterator();
+            while (iter.hasNext()) {
+                Peer next = iter.next();
+                if (next.getPeer().getId().equals(peerToCheck.getPeer().getId())) {
+                    if (next.getPeer().getParents().size() != peerToCheck.getPeer().getParents().size()) {
+                        iter.remove();
+
+                        check = true;
+                    } else {
+                        if (!peerToCheck.getPeer().getParents().containsAll(next.getPeer().getParents())) {
+                            check = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (check) {
+            set.add(peerToCheck);
+        }
+        return check;
+
     }
 }
