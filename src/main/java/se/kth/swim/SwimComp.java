@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -81,6 +82,7 @@ public class SwimComp extends ComponentDefinition {
 
     private int indirectPings = 1;
     private int lamda = 5;
+    private final Random rand;
 
     private Set<Peer> deadPeers = new HashSet<Peer>();
     private Set<Peer> alivePeers = new HashSet<Peer>();
@@ -92,6 +94,7 @@ public class SwimComp extends ComponentDefinition {
 //        log.info("{} initiating...", selfAddress);
         this.bootstrapNodes = init.bootstrapNodes;
         this.aggregatorAddress = init.aggregatorAddress;
+        this.rand = new Random(this.selfAddress.getId() * 100);
 
         for (NatedAddress bootstrap : init.bootstrapNodes) {
             this.alivePeers.add(new Peer(bootstrap));
@@ -197,14 +200,14 @@ public class SwimComp extends ComponentDefinition {
         @Override
         public void handle(PingTimeout event) {
             cleanUpQueue();
-            for (Peer partnerAddress : alivePeers) {
-                if (!partnerAddress.getPeer().isOpen()) {
-                    log.info("{} SENDING PING TO {} WHICH HAS PARENTS {}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId(), partnerAddress.getPeer().getParents()});
-                }
-                if (!partnerAddress.getPeer().getId().equals(selfAddress.getId())) {
-                    trigger(new NetPing(selfAddress, partnerAddress.getPeer(), new Ping(queue)), network);
-                    schedulePongTimeout(partnerAddress.getPeer());
-                }
+
+            Peer partnerAddress = randomPeer(alivePeers);
+            if (!partnerAddress.getPeer().isOpen()) {
+                log.info("{} SENDING PING TO {} WHICH HAS PARENTS {}", new Object[]{selfAddress.getId(), partnerAddress.getPeer().getId(), partnerAddress.getPeer().getParents()});
+            }
+            if (!partnerAddress.getPeer().getId().equals(selfAddress.getId())) {
+                trigger(new NetPing(selfAddress, partnerAddress.getPeer(), new Ping(queue)), network);
+                schedulePongTimeout(partnerAddress.getPeer());
             }
         }
     };
@@ -562,5 +565,19 @@ public class SwimComp extends ComponentDefinition {
         }
         return check;
 
+    }
+
+    private Peer randomPeer(Set<Peer> nodes) {
+        if (nodes.size() > 0) {
+            int index = rand.nextInt(nodes.size());
+            Iterator<Peer> it = nodes.iterator();
+            while (index > 0) {
+                it.next();
+                index--;
+            }
+            return it.next();
+        } else {
+            return new Peer(selfAddress);
+        }
     }
 }

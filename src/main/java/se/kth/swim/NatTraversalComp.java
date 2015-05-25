@@ -167,10 +167,10 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetMsg<Object> msg) {
-//            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
+            log.trace("{} sending msg:{}", new Object[]{selfAddress.getId(), msg});
             Header<NatedAddress> header = msg.getHeader();
-            if (header.getDestination().isOpen()) {
-//                log.info("{} sending direct message:{} to:{}", new Object[]{selfAddress.getId(), msg, header.getDestination()});
+            if (header.getDestination().isOpen() || header.getDestination().getParents().contains(selfAddress)) {
+                log.info("{} sending direct message:{} to:{}", new Object[]{selfAddress.getId(), msg, header.getDestination()});
                 trigger(msg, network);
                 return;
             } else {
@@ -179,7 +179,7 @@ public class NatTraversalComp extends ComponentDefinition {
                 }
                 NatedAddress parent = randomNode(header.getDestination().getParents());
                 SourceHeader<NatedAddress> sourceHeader = new SourceHeader(header, parent);
-//                log.info("{} sending message:{} to relay:{}", new Object[]{selfAddress.getId(), msg, parent});
+                log.info("{} sending message:{} to relay:{}", new Object[]{selfAddress.getId(), msg, parent});
                 trigger(msg.copyMessage(sourceHeader), network);
                 return;
             }
@@ -201,9 +201,14 @@ public class NatTraversalComp extends ComponentDefinition {
                 Set<NatedAddress> newParents = new HashSet<NatedAddress>();
                 for (NatedAddress deadparent : deadParents) {
                     parentPool.remove(deadparent);
+//                    selfAddress.getParents().remove(deadparent);
                 }
                 for (int i = 0; i <= maximumParents; i++) {
-                    newParents.add(randomNode(parentPool));
+                    NatedAddress newPar = randomNode(parentPool);
+                    if (newPar != null) {
+                        newParents.add(randomNode(parentPool));
+                    }
+//                    selfAddress.getParents().add(randomNode(parentPool));
                 }
                 int myid = selfAddress.getId();
 
@@ -254,18 +259,20 @@ public class NatTraversalComp extends ComponentDefinition {
         public void handle(NetHeartbeatReply event) {
             log.info("{} got reply from {}, canceling replytimeout", selfAddress.getId(), event.getSource().getId());
             cancelHeartbeatReplyTimeout(event.getSource());
-
         }
     };
 
     private NatedAddress randomNode(Set<NatedAddress> nodes) {
-        int index = rand.nextInt(nodes.size());
-        Iterator<NatedAddress> it = nodes.iterator();
-        while (index > 0) {
-            it.next();
-            index--;
+        if (nodes.size() > 0) {
+            int index = rand.nextInt(nodes.size());
+            Iterator<NatedAddress> it = nodes.iterator();
+            while (index > 0) {
+                it.next();
+                index--;
+            }
+            return it.next();
         }
-        return it.next();
+        return null;
     }
 
     public static class NatTraversalInit extends Init<NatTraversalComp> {

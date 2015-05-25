@@ -182,7 +182,7 @@ public class CroupierComp extends ComponentDefinition {
             }
         }
     };
-    
+
     Handler<CroupierUpdate.View> handleUpdateView = new Handler<CroupierUpdate.View>() {
         @Override
         public void handle(CroupierUpdate.View update) {
@@ -312,30 +312,30 @@ public class CroupierComp extends ComponentDefinition {
 
     Handler handleShuffleResponse = new Handler<CroupierShuffleNet.Response>() {
 
-                @Override
-                public void handle(CroupierShuffleNet.Response response) {
-                    OverlayHeaderImpl<NatedAddress> header = (OverlayHeaderImpl)response.getHeader();
-                    if (header.getOverlayId() != overlayId) {
-                        log.error("{} message with header:{} not belonging to croupier overlay:{}", new Object[]{logPrefix, header, overlayId});
-                        throw new RuntimeException("message not belonging to croupier overlay");
-                    }
-                    NatedAddress respSrc = response.getHeader().getSource();
-                    if (self.getBaseAdr().equals(respSrc.getBaseAdr())) {
-                        log.error("{} Tried to shuffle with myself", logPrefix);
-                        throw new RuntimeException("tried to shuffle with myself");
-                    }
-                    log.trace("{} received:{} from:{}", new Object[]{logPrefix, response, respSrc});
+        @Override
+        public void handle(CroupierShuffleNet.Response response) {
+            OverlayHeaderImpl<NatedAddress> header = (OverlayHeaderImpl) response.getHeader();
+            if (header.getOverlayId() != overlayId) {
+                log.error("{} message with header:{} not belonging to croupier overlay:{}", new Object[]{logPrefix, header, overlayId});
+                throw new RuntimeException("message not belonging to croupier overlay");
+            }
+            NatedAddress respSrc = response.getHeader().getSource();
+            if (self.getBaseAdr().equals(respSrc.getBaseAdr())) {
+                log.error("{} Tried to shuffle with myself", logPrefix);
+                throw new RuntimeException("tried to shuffle with myself");
+            }
+            log.trace("{} received:{} from:{}", new Object[]{logPrefix, response, respSrc});
 
-                    if (shuffleTimeoutId == null) {
-                        log.debug("{} req:{}  already timed out", new Object[]{logPrefix, response.getContent().getId(), respSrc});
-                        return;
-                    }
+            if (shuffleTimeoutId == null) {
+                log.debug("{} req:{}  already timed out", new Object[]{logPrefix, response.getContent().getId(), respSrc});
+                return;
+            }
 
-                    publicView.selectToKeep(respSrc, response.getContent().publicNodes);
-                    privateView.selectToKeep(respSrc, response.getContent().privateNodes);
-                    cancelShuffleTimeout();
-                }
-            };
+            publicView.selectToKeep(respSrc, response.getContent().publicNodes);
+            privateView.selectToKeep(respSrc, response.getContent().privateNodes);
+            cancelShuffleTimeout();
+        }
+    };
 
     Handler<ShuffleTimeout> handleShuffleTimeout = new Handler<ShuffleTimeout>() {
         @Override

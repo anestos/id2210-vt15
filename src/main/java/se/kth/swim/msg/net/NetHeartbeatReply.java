@@ -41,7 +41,5 @@ public class NetHeartbeatReply extends NetMsg<HeartbeatReply> {
     public NetMsg copyMessage(Header<NatedAddress> newHeader) {
         return new NetHeartbeatReply(newHeader, getContent());
     }
-    
-
 
 }

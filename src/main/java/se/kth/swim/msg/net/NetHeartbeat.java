@@ -16,7 +16,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
-
 package se.kth.swim.msg.net;
 
 import se.kth.swim.msg.Heartbeat;
@@ -41,7 +40,4 @@ public class NetHeartbeat extends NetMsg<Heartbeat> {
     public NetMsg copyMessage(Header<NatedAddress> newHeader) {
         return new NetHeartbeat(newHeader, getContent());
     }
-    
-
-
 }
