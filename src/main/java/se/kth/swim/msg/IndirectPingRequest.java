@@ -20,6 +20,8 @@ package se.kth.swim.msg;
 
 import java.util.Set;
 import se.kth.swim.Peer;
+import se.kth.swim.PeerStatus;
+import se.kth.swim.StateChanges;
 
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
@@ -29,13 +31,19 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
 public class IndirectPingRequest {
 
     public NatedAddress suspected;
+        private final StateChanges<PeerStatus> queue;
 
-    public IndirectPingRequest(NatedAddress suspected) {
+
+    public IndirectPingRequest(NatedAddress suspected, StateChanges<PeerStatus> queue) {
         this.suspected = suspected;
+        this.queue = queue;
     }
 
     public NatedAddress getSuspected() {
         return suspected;
+    }
+    public StateChanges<PeerStatus> getQueue(){
+        return queue;
     }
 
 }

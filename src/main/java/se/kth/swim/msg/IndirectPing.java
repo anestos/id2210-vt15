@@ -18,6 +18,8 @@
  */
 package se.kth.swim.msg;
 
+import se.kth.swim.PeerStatus;
+import se.kth.swim.StateChanges;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
 /**
@@ -25,12 +27,18 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
  */
 public class IndirectPing {
    private final NatedAddress original;
+    private final StateChanges<PeerStatus> queue;
 
-    public IndirectPing(NatedAddress original) {
+    public IndirectPing(NatedAddress original, StateChanges<PeerStatus> queue) {
         this.original = original;
+        this.queue = queue;
     }
 
     public NatedAddress getOriginal() {
         return original;
+    }
+    
+      public StateChanges<PeerStatus> getQueue() {
+        return queue;
     }
 }

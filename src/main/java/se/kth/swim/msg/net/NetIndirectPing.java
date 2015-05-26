@@ -18,6 +18,8 @@
  */
 package se.kth.swim.msg.net;
 
+import se.kth.swim.PeerStatus;
+import se.kth.swim.StateChanges;
 import se.kth.swim.msg.IndirectPing;
 import se.sics.kompics.network.Header;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
@@ -27,8 +29,8 @@ import se.sics.p2ptoolbox.util.network.NatedAddress;
  */
 public class NetIndirectPing extends NetMsg<IndirectPing> {
 
-    public NetIndirectPing(NatedAddress src, NatedAddress dst, NatedAddress original) {
-        super(src, dst, new IndirectPing(original));
+    public NetIndirectPing(NatedAddress src, NatedAddress dst, NatedAddress original, StateChanges<PeerStatus> queue) {
+        super(src, dst, new IndirectPing(original, queue));
     }
 
     private NetIndirectPing(Header<NatedAddress> header, IndirectPing content) {

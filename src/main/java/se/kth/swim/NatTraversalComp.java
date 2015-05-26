@@ -187,7 +187,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
     };
 
-    private Handler handleCroupierSample = new Handler<CroupierSample>() {
+    private Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
 //            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
@@ -201,14 +201,12 @@ public class NatTraversalComp extends ComponentDefinition {
                 Set<NatedAddress> newParents = new HashSet<NatedAddress>();
                 for (NatedAddress deadparent : deadParents) {
                     parentPool.remove(deadparent);
-//                    selfAddress.getParents().remove(deadparent);
                 }
                 for (int i = 0; i <= maximumParents; i++) {
                     NatedAddress newPar = randomNode(parentPool);
                     if (newPar != null) {
                         newParents.add(randomNode(parentPool));
                     }
-//                    selfAddress.getParents().add(randomNode(parentPool));
                 }
                 int myid = selfAddress.getId();
 
