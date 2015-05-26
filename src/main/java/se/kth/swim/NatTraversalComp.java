@@ -235,7 +235,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(HeartbeatReplyTimeout event) {
-            log.info("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
+            log.warn("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
             foundDeadParent = true;
             deadParents.add(event.getParent());
             cancelPeriodicHeartbeat();

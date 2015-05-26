@@ -162,6 +162,7 @@ public class SwimComp extends ComponentDefinition {
             } else if (deadPeers.contains(new Peer(event.getSource()))) {
 //                deadPeers.remove(new Peer(event.getSource()));
 //                alivePeers.add(new Peer(event.getSource()));
+                log.info("{} Received ping from dead node, is he really dead?", selfAddress.getId());
                 addToQueue(new Peer(event.getSource()), "dead", incarnationMap.get(new Peer(event.getSource())), lamda - 1);
             }
             manageQueue(event.getContent().getQueue());
@@ -534,14 +535,13 @@ public class SwimComp extends ComponentDefinition {
             } else {
                 if (address.getStatus().equals("suspected") || address.getStatus().equals("dead")) {
                     //triger alive, send to all connections                        
-                    log.info("{} I am alive. Received word from that i was {} inc:{} myinc:{}", new Object[]{selfAddress.getId(), address.getStatus(), address.getIncarnationNumber(), incarnationNumber});
+                    log.info("{} I am alive. Received word that i was {} inc:{} myinc:{}", new Object[]{selfAddress.getId(), address.getStatus(), address.getIncarnationNumber(), incarnationNumber});
 
-//                    if (address.getIncarnationNumber() == incarnationNumber) {
+                    if (address.getIncarnationNumber() == incarnationNumber) {
                     incarnationNumber++;
                     addToQueue(new Peer(selfAddress), "alive", incarnationNumber, 0);
                     log.info("{} added to queue that I am alive", new Object[]{selfAddress.getId()});
-
-//                    }
+                    }
                 }
             }
         }
@@ -580,9 +580,7 @@ public class SwimComp extends ComponentDefinition {
                 }
             }
         }
-
         if (check) {
-//           log.info("{} HAS TIMEOUTMAPS pong:{} suspect:{} indirect:{}", new Object[]{selfAddress.getId(), pongTimeoutMap.toString(), suspectTimeoutMap.toString(), indirectTimeoutMap.toString()});
             cancelPongTimeout(oldAddress);
             cancelSuspectTimeout(oldAddress);
             cancelIndirectTimeout(oldAddress);
