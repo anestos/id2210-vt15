@@ -299,7 +299,7 @@ public class SwimScenario {
 //               stopPeers.startAfterTerminationOf(10000, startPeers);
 //                deadLinks1.startAfterTerminationOf(10000,startPeers2);
 //                disconnectedNodes1.startAfterTerminationOf(15000, startPeers2);
-                fetchSimulationResult.startAfterTerminationOf(200000, startPeers);
+                fetchSimulationResult.startAfterTerminationOf(400000, startPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 
             }

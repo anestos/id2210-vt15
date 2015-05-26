@@ -38,7 +38,7 @@ public class Peer implements Comparable<Peer>{
         
         @Override
 	public int hashCode() {
-		return peer.hashCode();
+		return peer.getId().hashCode();
 	}
         @Override
 	public boolean equals(Object obj) {
