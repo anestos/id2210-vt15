@@ -109,6 +109,7 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(Start event) {
             log.info("{} starting...", new Object[]{selfAddress.getId()});
+            // start a periodic timeout to heartbeat the parents if the node is Nated
             if (!selfAddress.isOpen()) {
                 schedulePeriodicHeartbeat();
             }
@@ -191,30 +192,40 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(CroupierSample event) {
 //            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
-            //use this to change parent in case it died
+            //If a parent hasn't replied to the heartbeats
+            // we assign the node a different set of open parents
+            // and inform Swim to spread the information to the other nodes
             if (foundDeadParent) {
                 Set<NatedAddress> parentPool = new HashSet<NatedAddress>();
                 Iterator<Container<NatedAddress, Object>> it = event.publicSample.iterator();
                 while (it.hasNext()) {
+                    // take the possible parents from croupier
                     parentPool.add(it.next().getSource());
                 }
                 Set<NatedAddress> newParents = new HashSet<NatedAddress>();
                 for (NatedAddress deadparent : deadParents) {
+                    // remove the parents proposed from croupier that have died
                     parentPool.remove(deadparent);
                 }
+                // add k=maximumParents parents from the parentpool 
                 for (int i = 0; i <= maximumParents; i++) {
                     NatedAddress newPar = randomNode(parentPool);
                     if (newPar != null) {
-                        newParents.add(randomNode(parentPool));
+                        newParents.add(newPar);
                     }
                 }
-                int myid = selfAddress.getId();
+                if (newParents.isEmpty()) {
+                    log.warn("{} Didn't find any new parents, i will try again later", selfAddress.getId());
+                } else {
+                    // create a new object for the selfAddress
+                    // inform swim and schedule the heartbeats again
+                    int myid = selfAddress.getId();
+                    selfAddress = new BasicNatedAddress(new BasicAddress(localHost, 12345, myid), NatType.NAT, newParents);
 
-                selfAddress = new BasicNatedAddress(new BasicAddress(localHost, 12345, myid), NatType.NAT, newParents);
-
-                foundDeadParent = false;
-                trigger(new NetParentChange(selfAddress, selfAddress), local);
-                schedulePeriodicHeartbeat();
+                    foundDeadParent = false;
+                    trigger(new NetParentChange(selfAddress, selfAddress), local);
+                    schedulePeriodicHeartbeat();
+                }
             }
         }
     };
@@ -223,6 +234,8 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(HeartbeatTimeout event) {
+            // send heartbeats to all parents 
+            // start a timeout for the reply
             for (NatedAddress open : selfAddress.getParents()) {
                 trigger(new NetHeartbeat(selfAddress, open), network);
                 scheduleHeartbeatReplyTimeout(open);
@@ -235,8 +248,12 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(HeartbeatReplyTimeout event) {
+            // if the timeout is triggered
+            // declare that parent dead
+            // pause the periodicHeartbeat 
             log.warn("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
             foundDeadParent = true;
+            heartbeatTimeoutMap.remove(event.getParent());
             deadParents.add(event.getParent());
             cancelPeriodicHeartbeat();
         }
@@ -246,6 +263,7 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetHeartbeat event) {
+            // A parent received the heartbeat and replies
             log.info("{} sending heartbeatReply to {}", selfAddress.getId(), event.getSource());
             trigger(new NetHeartbeatReply(selfAddress, event.getSource()), network);
         }
@@ -255,11 +273,13 @@ public class NatTraversalComp extends ComponentDefinition {
 
         @Override
         public void handle(NetHeartbeatReply event) {
+            // reply for the heartbeat arrived, cancel its timeout
             log.info("{} got reply from {}, canceling replytimeout", selfAddress.getId(), event.getSource().getId());
             cancelHeartbeatReplyTimeout(event.getSource());
         }
     };
 
+    // gets a set of NatedAddress and returns a random NatedAddress
     private NatedAddress randomNode(Set<NatedAddress> nodes) {
         if (nodes.size() > 0) {
             int index = rand.nextInt(nodes.size());
@@ -284,22 +304,23 @@ public class NatTraversalComp extends ComponentDefinition {
         }
     }
 
+    // start periodic Heartbeat
     private void schedulePeriodicHeartbeat() {
         SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(5000, 5000);
         HeartbeatTimeout sc = new HeartbeatTimeout(spt);
         spt.setTimeoutEvent(sc);
         heartbeatTimeoutId = sc.getTimeoutId();
         trigger(spt, timer);
-//        log.info("{} started periodic Heartbeat {}", new Object[]{selfAddress.getId(), heartbeatTimeoutId});
     }
 
+    // stop periodic Heartbeat
     private void cancelPeriodicHeartbeat() {
         CancelTimeout cpt = new CancelTimeout(heartbeatTimeoutId);
         trigger(cpt, timer);
         heartbeatTimeoutId = null;
 
     }
-
+    // HeartbeatTimeout is a simple periodic timeout
     private static class HeartbeatTimeout extends Timeout {
 
         public HeartbeatTimeout(SchedulePeriodicTimeout request) {
@@ -307,6 +328,7 @@ public class NatTraversalComp extends ComponentDefinition {
         }
     }
 
+    // start heartbeat reply timeout
     private void scheduleHeartbeatReplyTimeout(NatedAddress peer) {
         ScheduleTimeout spt = new ScheduleTimeout(1000);
         HeartbeatReplyTimeout sc = new HeartbeatReplyTimeout(spt, peer);
@@ -315,12 +337,14 @@ public class NatTraversalComp extends ComponentDefinition {
         trigger(spt, timer);
     }
 
+    // stop heartbeat reply timeout
     private void cancelHeartbeatReplyTimeout(NatedAddress peer) {
         CancelTimeout cpt = new CancelTimeout(heartbeatTimeoutMap.get(peer));
         heartbeatTimeoutMap.remove(peer);
         trigger(cpt, timer);
     }
-
+    // HeartbeatReplyTimeout gets the address so that we can stop it later 
+    // if that parent replied
     private static class HeartbeatReplyTimeout extends Timeout {
 
         private final NatedAddress parent;
