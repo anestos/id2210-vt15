@@ -20,24 +20,15 @@ package se.kth.swim.simulation;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import org.javatuples.Pair;
 import se.kth.swim.AggregatorComp;
 import se.kth.swim.HostComp;
 import se.kth.swim.croupier.CroupierConfig;
 import se.sics.p2ptoolbox.simulator.cmd.OperationCmd;
-import se.sics.p2ptoolbox.simulator.cmd.impl.ChangeNetworkModelCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.SimulationResult;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartAggregatorCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.StartNodeCmd;
 import se.sics.p2ptoolbox.simulator.cmd.impl.KillNodeCmd;
-import se.sics.p2ptoolbox.simulator.core.network.NetworkModel;
-import se.sics.p2ptoolbox.simulator.core.network.impl.DeadLinkNetworkModel;
-import se.sics.p2ptoolbox.simulator.core.network.impl.DisconnectedNodesNetworkModel;
-import se.sics.p2ptoolbox.simulator.core.network.impl.UniformRandomModel;
 import se.sics.p2ptoolbox.simulator.dsl.SimulationScenario;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation;
 import se.sics.p2ptoolbox.simulator.dsl.adaptor.Operation1;
@@ -51,52 +42,19 @@ import se.sics.p2ptoolbox.util.network.impl.BasicNatedAddress;
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
-public class SwimScenario {
+public class SwimScenario5 {
 
     private static long seed;
     private static InetAddress localHost;
 
-    private static CroupierConfig croupierConfig = new CroupierConfig(10, 5, 2000, 1000); 
+    private static CroupierConfig croupierConfig = new CroupierConfig(10, 5, 2000, 1000);
+
     static {
         try {
             localHost = InetAddress.getByName("127.0.0.1");
         } catch (UnknownHostException ex) {
             throw new RuntimeException(ex);
         }
-    }
-
-    //Make sure that your dead link set reflect the nodes in your system
-    private static final Map<Integer, Set<Pair<Integer, Integer>>> deadLinksSets = new HashMap<Integer, Set<Pair<Integer, Integer>>>();
-
-    static {
-        Set<Pair<Integer, Integer>> deadLinks;
-
-        deadLinks = new HashSet<Pair<Integer, Integer>>();
-        deadLinks.add(Pair.with(10, 12));
-        deadLinks.add(Pair.with(12, 10));
-        deadLinksSets.put(1, deadLinks);
-
-        deadLinks = new HashSet<Pair<Integer, Integer>>();
-        deadLinks.add(Pair.with(10, 12));
-        deadLinks.add(Pair.with(12, 10));
-        deadLinks.add(Pair.with(13, 10));
-        deadLinksSets.put(2, deadLinks);
-    }
-
-    //Make sure disconnected nodes reflect your nodes in the system
-    private static final Map<Integer, Set<Integer>> disconnectedNodesSets = new HashMap<Integer, Set<Integer>>();
-
-    static {
-        Set<Integer> disconnectedNodes;
-
-        disconnectedNodes = new HashSet<Integer>();
-        disconnectedNodes.add(10);
-        disconnectedNodesSets.put(1, disconnectedNodes);
-
-        disconnectedNodes = new HashSet<Integer>();
-        disconnectedNodes.add(10);
-        disconnectedNodes.add(12);
-        disconnectedNodesSets.put(2, disconnectedNodes);
     }
 
     static Operation1<StartAggregatorCmd, Integer> startAggregatorOp = new Operation1<StartAggregatorCmd, Integer>() {
@@ -106,7 +64,7 @@ public class SwimScenario {
             return new StartAggregatorCmd<AggregatorComp, NatedAddress>() {
                 private NatedAddress aggregatorAddress;
 
-               // @Override
+                // @Override
                 public Class getNodeComponentDefinition() {
                     return AggregatorComp.class;
                 }
@@ -117,7 +75,7 @@ public class SwimScenario {
                     return new AggregatorComp.AggregatorInit(aggregatorAddress);
                 }
 
-              //  @Override
+                //  @Override
                 public NatedAddress getAddress() {
                     return aggregatorAddress;
                 }
@@ -128,17 +86,17 @@ public class SwimScenario {
 
     static Operation1<StartNodeCmd, Integer> startNodeOp = new Operation1<StartNodeCmd, Integer>() {
 
-       // @Override
+        // @Override
         public StartNodeCmd generate(final Integer nodeId) {
             return new StartNodeCmd<HostComp, NatedAddress>() {
                 private NatedAddress nodeAddress;
 
-               // @Override
+                // @Override
                 public Class getNodeComponentDefinition() {
                     return HostComp.class;
                 }
 
-              //  @Override
+                //  @Override
                 public HostComp.HostInit getNodeComponentInit(NatedAddress aggregatorServer, Set<NatedAddress> bootstrapNodes) {
                     if (nodeId % 2 == 0) {
                         //open address
@@ -155,17 +113,17 @@ public class SwimScenario {
                     return new HostComp.HostInit(nodeAddress, bootstrapNodes, aggregatorServer, nodeSeed, croupierConfig);
                 }
 
-               // @Override
+                // @Override
                 public Integer getNodeId() {
                     return nodeId;
                 }
 
-               // @Override
+                // @Override
                 public NatedAddress getAddress() {
                     return nodeAddress;
                 }
 
-              //  @Override
+                //  @Override
                 public int bootstrapSize() {
                     return 5;
                 }
@@ -186,44 +144,12 @@ public class SwimScenario {
 
     };
 
-    //Usable NetworkModels:
-    //1. UniformRandomModel
-    //parameters: minimum link latency, maximum link latency
-    //by default Simulator starts with UniformRandomModel(50, 500), so minimum link delay:50ms, maximum link delay:500ms
-    //2. DeadLinkNetworkModel
-    //composite network model that can be built on any other network model
-    //parameters: network model, set of dead links (directed links)
-    //Pair<1,2> means if node 1 will try to send a message to node 2, the simulator will drop this message, since this is a dead link
-    //3. DisconnectedNodesNetworkModel
-    //composite network model that can be built on any other network model
-    //parameters: network model, set of disconnected nodes
-    //a disconnected node will not be able to send or receive messages
-    static Operation1<ChangeNetworkModelCmd, Integer> disconnectedNodesNMOp = new Operation1<ChangeNetworkModelCmd, Integer>() {
-
-       // @Override
-        public ChangeNetworkModelCmd generate(Integer setIndex) {
-            NetworkModel baseNetworkModel = new UniformRandomModel(50, 500);
-            NetworkModel compositeNetworkModel = new DisconnectedNodesNetworkModel(setIndex, baseNetworkModel, disconnectedNodesSets.get(setIndex));
-            return new ChangeNetworkModelCmd(compositeNetworkModel);
-        }
-    };
-
-    static Operation1<ChangeNetworkModelCmd, Integer> deadLinksNMOp = new Operation1<ChangeNetworkModelCmd, Integer>() {
-
-      //  @Override
-        public ChangeNetworkModelCmd generate(Integer setIndex) {
-            NetworkModel baseNetworkModel = new UniformRandomModel(50, 500);
-            NetworkModel compositeNetworkModel = new DeadLinkNetworkModel(setIndex, baseNetworkModel, deadLinksSets.get(setIndex));
-            return new ChangeNetworkModelCmd(compositeNetworkModel);
-        }
-    };
-
     static Operation<SimulationResult> simulationResult = new Operation<SimulationResult>() {
 
         public SimulationResult generate() {
             return new SimulationResult() {
 
-              //  @Override
+                //  @Override
                 public void setSimulationResult(OperationCmd.ValidationException failureCause) {
                     SwimSimulationResult.failureCause = failureCause;
                 }
@@ -240,7 +166,7 @@ public class SwimScenario {
     //check se.sics.p2ptoolbox.simulator.dsl.distribution for more distributions
     //you can implement your own - by extending Distribution
     public static SimulationScenario simpleBoot(final long seed) {
-        SwimScenario.seed = seed;
+        SwimScenario5.seed = seed;
         SimulationScenario scen = new SimulationScenario() {
             {
                 StochasticProcess startAggregator = new StochasticProcess() {
@@ -252,36 +178,22 @@ public class SwimScenario {
 
                 StochasticProcess startPeers = new StochasticProcess() {
                     {
+                        Integer[] ids = new Integer[100];
+                        for (int i = 0; i < 20; i++) {
+                            ids[i] = i * 2;
+                        }
+                        for (int i = 20; i < 100; i++) {
+                            ids[i] = i * 2 + 1;
+                        }
                         eventInterArrivalTime(constant(1000));
-                        raise(17, startNodeOp, new GenIntSequentialDistribution(new Integer[]{20,11,10,12,14,16,22,24,26,28,30, 32, 34, 36, 38, 40, 42}));
-                    }
-                };
-                
-               StochasticProcess killPeers2 = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(3, killNodeOp, new GenIntSequentialDistribution(new Integer[]{36, 14, 28}));
+                        raise(100, startNodeOp, new GenIntSequentialDistribution(ids));
                     }
                 };
 
                 StochasticProcess killPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(1, killNodeOp, new GenIntSequentialDistribution(new Integer[]{20}));
-                    }
-                };
-
-                StochasticProcess deadLinks1 = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, deadLinksNMOp, new ConstantDistribution(Integer.class, 1));
-                    }
-                };
-
-                StochasticProcess disconnectedNodes1 = new StochasticProcess() {
-                    {
-                        eventInterArrivalTime(constant(1000));
-                        raise(1, disconnectedNodesNMOp, new ConstantDistribution(Integer.class, 1));
+                        raise(20, killNodeOp, new GenIntSequentialDistribution(new Integer[]{10, 12, 14, 30, 34, 197, 179, 177, 173, 193, 61, 71, 81, 91, 101, 111, 121, 131, 141, 151}));
                     }
                 };
 
@@ -295,12 +207,7 @@ public class SwimScenario {
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
                 killPeers.startAfterTerminationOf(50000, startPeers);
-                killPeers2.startAfterTerminationOf(50000, killPeers);
-//                startPeers2.startAfterTerminationOf(10000, killPeers);
-//               stopPeers.startAfterTerminationOf(10000, startPeers);
-//                deadLinks1.startAfterTerminationOf(10000,startPeers2);
-//                disconnectedNodes1.startAfterTerminationOf(15000, startPeers2);
-                fetchSimulationResult.startAfterTerminationOf(2000000, startPeers);
+                fetchSimulationResult.startAfterTerminationOf(3000000, startPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 
             }

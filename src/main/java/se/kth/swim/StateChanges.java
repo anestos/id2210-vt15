@@ -35,7 +35,8 @@ public class StateChanges<PeerStatus> extends LinkedList<PeerStatus> {
     @Override
     public boolean add(PeerStatus p){
         super.add(p);
-        while(size() > limit) { super.remove(); }
+        while(size() > limit) { 
+            super.remove(); }
         return true;
     }
 }
