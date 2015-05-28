@@ -20,6 +20,8 @@ package se.kth.swim.simulation;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import se.kth.swim.AggregatorComp;
 import se.kth.swim.HostComp;
@@ -56,6 +58,30 @@ public class SwimScenario3 {
             throw new RuntimeException(ex);
         }
     }
+    private static Integer[] nodesToStart;
+    private static List<Integer> nodesToStartList;
+
+    static {
+        nodesToStart = new Integer[100];
+        for (int i = 0; i < 80; i++) {
+            nodesToStart[i] = i * 2;
+        }
+        for (int i = 80; i < 100; i++) {
+            nodesToStart[i] = i * 2 + 1;
+        }
+        nodesToStartList = Arrays.asList(nodesToStart);
+    }
+    private static Integer[] nodesToKill;
+    private static List<Integer> nodesToKillList;
+
+    static {
+        nodesToKill = new Integer[10];
+        for (int i = 0; i < 10; i++) {
+            nodesToKill[i] = i * 2;
+        }
+        nodesToKillList = Arrays.asList(nodesToKill);
+
+    }
 
     static Operation1<StartAggregatorCmd, Integer> startAggregatorOp = new Operation1<StartAggregatorCmd, Integer>() {
 
@@ -72,7 +98,7 @@ public class SwimScenario3 {
                 //@Override
                 public AggregatorComp.AggregatorInit getNodeComponentInit() {
                     aggregatorAddress = new BasicNatedAddress(new BasicAddress(localHost, 23456, nodeId));
-                    return new AggregatorComp.AggregatorInit(aggregatorAddress);
+                    return new AggregatorComp.AggregatorInit(aggregatorAddress, nodesToStartList, nodesToKillList);
                 }
 
                 //  @Override
@@ -178,22 +204,15 @@ public class SwimScenario3 {
 
                 StochasticProcess startPeers = new StochasticProcess() {
                     {
-                        Integer[] ids = new Integer[100];
-                        for (int i = 0; i < 80; i++) {
-                            ids[i] = i * 2;
-                        }
-                        for (int i = 80; i < 100; i++) {
-                            ids[i] = i * 2 + 1;
-                        }
                         eventInterArrivalTime(constant(1000));
-                        raise(100, startNodeOp, new GenIntSequentialDistribution(ids));
+                        raise(100, startNodeOp, new GenIntSequentialDistribution(nodesToStart));
                     }
                 };
 
                 StochasticProcess killPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(10, killNodeOp, new GenIntSequentialDistribution(new Integer[]{10, 20, 30, 40, 50, 60, 70, 80, 90, 100}));
+                        raise(10, killNodeOp, new GenIntSequentialDistribution(nodesToKill));
                     }
                 };
 
@@ -206,7 +225,7 @@ public class SwimScenario3 {
 
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
-                killPeers.startAfterTerminationOf(15000, startPeers);
+                killPeers.startAfterTerminationOf(19000, startPeers);
                 fetchSimulationResult.startAfterTerminationOf(1000000, startPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 

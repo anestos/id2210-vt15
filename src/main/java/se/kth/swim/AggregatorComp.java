@@ -18,6 +18,11 @@
  */
 package se.kth.swim;
 
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.kth.swim.msg.net.NetStatus;
@@ -39,16 +44,31 @@ public class AggregatorComp extends ComponentDefinition {
     private static final Logger log = LoggerFactory.getLogger(AggregatorComp.class);
     private Positive<Network> network = requires(Network.class);
     private Positive<Timer> timer = requires(Timer.class);
+    private Set<Peer> peersWithAllTheInfo = new HashSet<Peer>();
 
     private final NatedAddress selfAddress;
+    public final List<Integer> nodesToStartList;
+    public final List<Integer> nodesToKillList;
+
+    private final Date dateObject;
+    private Date convergeTime;
+    private long startTime;
+    private long endTime;
+    private boolean converged = false;
 
     public AggregatorComp(AggregatorInit init) {
         this.selfAddress = init.selfAddress;
+        this.nodesToKillList = init.nodesToKillList;
+        this.nodesToStartList = init.nodesToStartList;
         log.info("{} initiating...", new Object[]{selfAddress.getId()});
 
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handleStatus, network);
+
+        dateObject = new Date();
+        startTime = dateObject.getTime();
+
     }
 
     private Handler<Start> handleStart = new Handler<Start>() {
@@ -72,17 +92,54 @@ public class AggregatorComp extends ComponentDefinition {
 
         @Override
         public void handle(NetStatus status) {
-            log.info("{} status from:{} pings:{}, peers d:{} a:{} s:{}", 
-                    new Object[]{selfAddress.getId(), status.getHeader().getSource(), status.getContent().receivedPings, status.getContent().deadPeers, status.getContent().alivePeers, status.getContent().suspectedPeers});
+//            log.info("{} status from:{} pings:{}, peers d:{} a:{} s:{}", new Object[]{selfAddress.getId(), status.getHeader().getSource(), status.getContent().receivedPings, status.getContent().deadPeers, status.getContent().alivePeers, status.getContent().suspectedPeers});
+            if (!nodesToKillList.contains(status.getSource().getId()) && !peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
+                if (status.getContent().deadPeers.size() == nodesToKillList.size()) {
+                    boolean check = true;
+                    for (Peer peerToCheck : status.getContent().deadPeers) {
+                        if (!nodesToKillList.contains(peerToCheck.getPeer().getId())) {
+                            check = false;
+                        }
+                    }
+                    if (check) {
+                        peersWithAllTheInfo.add(new Peer(status.getSource()));
+                    }
+                    if (peersWithAllTheInfo.size() == nodesToStartList.size() - nodesToKillList.size()) {
+                        convergeTime = new Date();
+                        endTime = convergeTime.getTime();
+                        long diff = endTime - startTime;
+                        converged = true;
+                        log.info("System converged in: {} ms", new Object[]{TimeUnit.MILLISECONDS.toMillis(diff)});
+                    }
+                }
+            } else if (!nodesToKillList.contains(status.getSource().getId()) && peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
+                if (status.getContent().deadPeers.size() == nodesToKillList.size()) {
+                    boolean check = true;
+                    for (Peer peerToCheck : status.getContent().deadPeers) {
+                        if (!nodesToKillList.contains(peerToCheck.getPeer().getId())) {
+                            check = false;
+                        }
+                    }
+                    if (!check) {
+                        peersWithAllTheInfo.remove(new Peer(status.getSource()));
+                    }
+                } else {
+                    peersWithAllTheInfo.remove(new Peer(status.getSource()));
+                }
+            }
         }
     };
 
     public static class AggregatorInit extends Init<AggregatorComp> {
 
         public final NatedAddress selfAddress;
+        public final List<Integer> nodesToStartList;
+        public final List<Integer> nodesToKillList;
 
-        public AggregatorInit(NatedAddress selfAddress) {
+        public AggregatorInit(NatedAddress selfAddress, List<Integer> nodesToStartList, List<Integer> nodesToKillList) {
             this.selfAddress = selfAddress;
+            this.nodesToStartList = nodesToStartList;
+            this.nodesToKillList = nodesToKillList;
         }
     }
 }

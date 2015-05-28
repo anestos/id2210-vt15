@@ -322,7 +322,6 @@ public class NatTraversalComp extends ComponentDefinition {
         spt.setTimeoutEvent(sc);
         heartbeatTimeoutId = sc.getTimeoutId();
         trigger(spt, timer);
-        log.warn("New Periodic timeout: {}", sc.getTimeoutId());
     }
 
     // stop periodic Heartbeat

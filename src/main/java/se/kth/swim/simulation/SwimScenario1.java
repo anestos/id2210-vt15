@@ -20,6 +20,9 @@ package se.kth.swim.simulation;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import se.kth.swim.AggregatorComp;
 import se.kth.swim.HostComp;
@@ -47,7 +50,8 @@ public class SwimScenario1 {
     private static long seed;
     private static InetAddress localHost;
 
-    private static CroupierConfig croupierConfig = new CroupierConfig(10, 5, 2000, 1000); 
+    private static CroupierConfig croupierConfig = new CroupierConfig(10, 5, 2000, 1000);
+
     static {
         try {
             localHost = InetAddress.getByName("127.0.0.1");
@@ -55,7 +59,28 @@ public class SwimScenario1 {
             throw new RuntimeException(ex);
         }
     }
-    
+    private static Integer[] nodesToStart;
+    private static List<Integer> nodesToStartList;
+
+    static {
+        nodesToStart = new Integer[100];
+        for (int i = 0; i < 100; i++) {
+            nodesToStart[i] = i * 2;
+        }
+        nodesToStartList = Arrays.asList(nodesToStart);
+    }
+    private static Integer[] nodesToKill;
+    private static List<Integer> nodesToKillList;
+
+    static {
+        nodesToKill = new Integer[10];
+        for (int i = 0; i < 10; i++) {
+            nodesToKill[i] = i * 2;
+        }
+        nodesToKillList = Arrays.asList(nodesToKill);
+
+    }
+
     static Operation1<StartAggregatorCmd, Integer> startAggregatorOp = new Operation1<StartAggregatorCmd, Integer>() {
 
         //@Override
@@ -63,7 +88,7 @@ public class SwimScenario1 {
             return new StartAggregatorCmd<AggregatorComp, NatedAddress>() {
                 private NatedAddress aggregatorAddress;
 
-               // @Override
+                // @Override
                 public Class getNodeComponentDefinition() {
                     return AggregatorComp.class;
                 }
@@ -71,10 +96,10 @@ public class SwimScenario1 {
                 //@Override
                 public AggregatorComp.AggregatorInit getNodeComponentInit() {
                     aggregatorAddress = new BasicNatedAddress(new BasicAddress(localHost, 23456, nodeId));
-                    return new AggregatorComp.AggregatorInit(aggregatorAddress);
+                    return new AggregatorComp.AggregatorInit(aggregatorAddress, nodesToStartList, nodesToKillList);
                 }
 
-              //  @Override
+                //  @Override
                 public NatedAddress getAddress() {
                     return aggregatorAddress;
                 }
@@ -85,17 +110,17 @@ public class SwimScenario1 {
 
     static Operation1<StartNodeCmd, Integer> startNodeOp = new Operation1<StartNodeCmd, Integer>() {
 
-       // @Override
+        // @Override
         public StartNodeCmd generate(final Integer nodeId) {
             return new StartNodeCmd<HostComp, NatedAddress>() {
                 private NatedAddress nodeAddress;
 
-               // @Override
+                // @Override
                 public Class getNodeComponentDefinition() {
                     return HostComp.class;
                 }
 
-              //  @Override
+                //  @Override
                 public HostComp.HostInit getNodeComponentInit(NatedAddress aggregatorServer, Set<NatedAddress> bootstrapNodes) {
                     if (nodeId % 2 == 0) {
                         //open address
@@ -112,17 +137,17 @@ public class SwimScenario1 {
                     return new HostComp.HostInit(nodeAddress, bootstrapNodes, aggregatorServer, nodeSeed, croupierConfig);
                 }
 
-               // @Override
+                // @Override
                 public Integer getNodeId() {
                     return nodeId;
                 }
 
-               // @Override
+                // @Override
                 public NatedAddress getAddress() {
                     return nodeAddress;
                 }
 
-              //  @Override
+                //  @Override
                 public int bootstrapSize() {
                     return 5;
                 }
@@ -143,15 +168,12 @@ public class SwimScenario1 {
 
     };
 
-    
-    
-
     static Operation<SimulationResult> simulationResult = new Operation<SimulationResult>() {
 
         public SimulationResult generate() {
             return new SimulationResult() {
 
-              //  @Override
+                //  @Override
                 public void setSimulationResult(OperationCmd.ValidationException failureCause) {
                     SwimSimulationResult.failureCause = failureCause;
                 }
@@ -180,19 +202,15 @@ public class SwimScenario1 {
 
                 StochasticProcess startPeers = new StochasticProcess() {
                     {
-                        Integer[] ids = new Integer[100];
-                        for(int i=0; i<100; i++){
-                            ids[i] = i*2;
-                        }
                         eventInterArrivalTime(constant(1000));
-                        raise(100, startNodeOp, new GenIntSequentialDistribution(ids));
+                        raise(100, startNodeOp, new GenIntSequentialDistribution(nodesToStart));
                     }
                 };
-                
+
                 StochasticProcess killPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(10, killNodeOp, new GenIntSequentialDistribution(new Integer[]{10,20,30,40,50,60,70,80,90,100}));
+                        raise(10, killNodeOp, new GenIntSequentialDistribution(nodesToKill));
                     }
                 };
 
@@ -205,7 +223,7 @@ public class SwimScenario1 {
 
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
-                killPeers.startAfterTerminationOf(15000, startPeers);
+                killPeers.startAfterTerminationOf(19000, startPeers);
                 fetchSimulationResult.startAfterTerminationOf(1000000, startPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 

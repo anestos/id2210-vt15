@@ -19,16 +19,19 @@
 
 package se.kth.swim.msg;
 
+import java.util.Set;
+import se.kth.swim.Peer;
+
 /**
  * @author Alex Ormenisan <aaor@sics.se>
  */
 public class Status {
     public int receivedPings;
-    public int deadPeers;
-    public int alivePeers;
-    public int suspectedPeers;
+    public Set<Peer> deadPeers;
+    public Set<Peer> alivePeers;
+    public Set<Peer> suspectedPeers;
     
-    public Status(int receivedPings, int deadPeers, int alivePeers, int suspectedPeers) {
+    public Status(int receivedPings, Set<Peer> deadPeers, Set<Peer> alivePeers, Set<Peer> suspectedPeers) {
         this.receivedPings = receivedPings;
         this.deadPeers = deadPeers;
         this.alivePeers = alivePeers;
