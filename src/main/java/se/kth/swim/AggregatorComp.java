@@ -50,11 +50,12 @@ public class AggregatorComp extends ComponentDefinition {
     public final List<Integer> nodesToStartList;
     public final List<Integer> nodesToKillList;
 
-    private final Date dateObject;
+    private Date dateObject;
     private Date convergeTime;
     private long startTime;
     private long endTime;
     private boolean converged = false;
+    private boolean timerStarted = false;
 
     public AggregatorComp(AggregatorInit init) {
         this.selfAddress = init.selfAddress;
@@ -65,9 +66,6 @@ public class AggregatorComp extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handleStatus, network);
-
-        dateObject = new Date();
-        startTime = dateObject.getTime();
 
     }
 
@@ -93,6 +91,11 @@ public class AggregatorComp extends ComponentDefinition {
         @Override
         public void handle(NetStatus status) {
 //            log.info("{} status from:{} pings:{}, peers d:{} a:{} s:{}", new Object[]{selfAddress.getId(), status.getHeader().getSource(), status.getContent().receivedPings, status.getContent().deadPeers, status.getContent().alivePeers, status.getContent().suspectedPeers});
+            if (!timerStarted && status.getContent().deadPeers.size() > 0) {
+                dateObject = new Date();
+                startTime = dateObject.getTime();
+                timerStarted = true;
+            }
             if (!nodesToKillList.contains(status.getSource().getId()) && !peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
                 if (status.getContent().deadPeers.size() == nodesToKillList.size()) {
                     boolean check = true;

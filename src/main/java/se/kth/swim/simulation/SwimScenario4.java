@@ -65,7 +65,7 @@ public class SwimScenario4 {
     static {
         nodesToStart = new Integer[100];
         for (int i = 0; i < 80; i++) {
-            nodesToStart[i] = i * 2;
+            nodesToStart[i] = i * 2 + 2;
         }
         for (int i = 80; i < 100; i++) {
             nodesToStart[i] = i * 2 + 1;
@@ -78,7 +78,7 @@ public class SwimScenario4 {
     static {
         nodesToKill = new Integer[20];
         for (int i = 0; i < 15; i++) {
-            nodesToKill[i] = i * 2;
+            nodesToKill[i] = i * 2 + 2;
         }
         for (int i = 15; i < 20; i++) {
             nodesToKill[i] = (i+65) * 2+1;

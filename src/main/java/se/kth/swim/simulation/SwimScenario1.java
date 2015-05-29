@@ -65,7 +65,7 @@ public class SwimScenario1 {
     static {
         nodesToStart = new Integer[100];
         for (int i = 0; i < 100; i++) {
-            nodesToStart[i] = i * 2;
+            nodesToStart[i] = i * 2 + 2;
         }
         nodesToStartList = Arrays.asList(nodesToStart);
     }
@@ -75,7 +75,7 @@ public class SwimScenario1 {
     static {
         nodesToKill = new Integer[10];
         for (int i = 0; i < 10; i++) {
-            nodesToKill[i] = i * 2;
+            nodesToKill[i] = i * 2 + 2;
         }
         nodesToKillList = Arrays.asList(nodesToKill);
 

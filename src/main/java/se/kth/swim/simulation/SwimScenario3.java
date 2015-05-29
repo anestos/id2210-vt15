@@ -64,7 +64,7 @@ public class SwimScenario3 {
     static {
         nodesToStart = new Integer[100];
         for (int i = 0; i < 80; i++) {
-            nodesToStart[i] = i * 2;
+            nodesToStart[i] = i * 2 + 2;
         }
         for (int i = 80; i < 100; i++) {
             nodesToStart[i] = i * 2 + 1;
@@ -77,7 +77,7 @@ public class SwimScenario3 {
     static {
         nodesToKill = new Integer[10];
         for (int i = 0; i < 10; i++) {
-            nodesToKill[i] = i * 2;
+            nodesToKill[i] = i * 2 + 2;
         }
         nodesToKillList = Arrays.asList(nodesToKill);
 
@@ -226,7 +226,7 @@ public class SwimScenario3 {
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
                 killPeers.startAfterTerminationOf(19000, startPeers);
-                fetchSimulationResult.startAfterTerminationOf(1000000, startPeers);
+                fetchSimulationResult.startAfterTerminationOf(1000000, killPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 
             }
