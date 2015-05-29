@@ -33,6 +33,8 @@ import se.sics.kompics.Positive;
 import se.sics.kompics.Start;
 import se.sics.kompics.Stop;
 import se.sics.kompics.network.Network;
+import se.sics.kompics.timer.SchedulePeriodicTimeout;
+import se.sics.kompics.timer.Timeout;
 import se.sics.kompics.timer.Timer;
 import se.sics.p2ptoolbox.util.network.NatedAddress;
 
@@ -52,10 +54,11 @@ public class AggregatorComp extends ComponentDefinition {
 
     private Date dateObject;
     private Date convergeTime;
-    private long startTime;
-    private long endTime;
+    private int startTime;
+    private int endTime;
     private boolean converged = false;
     private boolean timerStarted = false;
+    private int customTimer = 0;
 
     public AggregatorComp(AggregatorInit init) {
         this.selfAddress = init.selfAddress;
@@ -66,6 +69,7 @@ public class AggregatorComp extends ComponentDefinition {
         subscribe(handleStart, control);
         subscribe(handleStop, control);
         subscribe(handleStatus, network);
+        subscribe(handleTimerTimeout, timer);
 
     }
 
@@ -74,6 +78,7 @@ public class AggregatorComp extends ComponentDefinition {
         @Override
         public void handle(Start event) {
             log.info("{} starting...", new Object[]{selfAddress});
+            schedulePeriodicTimer();
         }
 
     };
@@ -92,8 +97,7 @@ public class AggregatorComp extends ComponentDefinition {
         public void handle(NetStatus status) {
 //            log.info("{} status from:{} pings:{}, peers d:{} a:{} s:{}", new Object[]{selfAddress.getId(), status.getHeader().getSource(), status.getContent().receivedPings, status.getContent().deadPeers, status.getContent().alivePeers, status.getContent().suspectedPeers});
             if (!timerStarted && status.getContent().deadPeers.size() > 0) {
-                dateObject = new Date();
-                startTime = dateObject.getTime();
+                startTime = customTimer;
                 timerStarted = true;
             }
             if (!nodesToKillList.contains(status.getSource().getId()) && !peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
@@ -108,11 +112,10 @@ public class AggregatorComp extends ComponentDefinition {
                         peersWithAllTheInfo.add(new Peer(status.getSource()));
                     }
                     if (peersWithAllTheInfo.size() == nodesToStartList.size() - nodesToKillList.size()) {
-                        convergeTime = new Date();
-                        endTime = convergeTime.getTime();
-                        long diff = endTime - startTime;
+                        endTime = customTimer;
+                        int diff = endTime - startTime;
                         converged = true;
-                        log.info("System converged in: {} ms", new Object[]{TimeUnit.MILLISECONDS.toMillis(diff)});
+                        log.info("System converged in: {} ms", new Object[]{diff});
                     }
                 }
             } else if (!nodesToKillList.contains(status.getSource().getId()) && peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
@@ -143,6 +146,26 @@ public class AggregatorComp extends ComponentDefinition {
             this.selfAddress = selfAddress;
             this.nodesToStartList = nodesToStartList;
             this.nodesToKillList = nodesToKillList;
+        }
+    }
+        private Handler<TimerTimeout> handleTimerTimeout = new Handler<TimerTimeout>() {
+
+        @Override
+        public void handle(TimerTimeout event) {
+            customTimer++;
+        }
+    };
+       private void schedulePeriodicTimer() {
+        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(0, 100);
+        TimerTimeout sc = new TimerTimeout(spt);
+        spt.setTimeoutEvent(sc);
+        trigger(spt, timer);
+    }
+       
+           private static class TimerTimeout extends Timeout {
+
+        public TimerTimeout(SchedulePeriodicTimeout request) {
+            super(request);
         }
     }
 }

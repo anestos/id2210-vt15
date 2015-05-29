@@ -85,8 +85,8 @@ public class SwimComp extends ComponentDefinition {
 
     // Tweek this variables for different experiments.
     private int indirectPings = 1; // how many nodes are selected for indirect ping
-    private final int lamda = 35; // how many times new information are passed around by the same node
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(30); // the size of the piggyback
+    private final int lamda = 50; // how many times new information are passed around by the same node
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(40); // the size of the piggyback
 
     private final Set<Peer> peersIHaveCommunicatedThisRound = new HashSet<Peer>();
 
