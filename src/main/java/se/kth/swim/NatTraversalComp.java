@@ -185,7 +185,8 @@ public class NatTraversalComp extends ComponentDefinition {
                 return;
             } else {
                 if (header.getDestination().getParents().isEmpty()) {
-//                    log.warn("{} nated node with no parents {}", selfAddress.getId(), header.getDestination().getId());
+                    // we removed the exception since a node with no parents will eventually get new parents
+                    log.warn("{} nated node with no parents {}", selfAddress.getId(), header.getDestination().getId());
                     return;
                 }
                 NatedAddress parent = randomNode(header.getDestination().getParents());
@@ -201,7 +202,7 @@ public class NatTraversalComp extends ComponentDefinition {
     private Handler<CroupierSample> handleCroupierSample = new Handler<CroupierSample>() {
         @Override
         public void handle(CroupierSample event) {
-//            log.info("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
+            log.trace("{} croupier public nodes:{}", selfAddress.getBaseAdr(), event.publicSample);
             //If a parent hasn't replied to the heartbeats
             // we assign the node a different set of open parents
             // and inform Swim to spread the information to the other nodes
@@ -230,7 +231,7 @@ public class NatTraversalComp extends ComponentDefinition {
             if (newPar != null) {
                 Set<NatedAddress> temp = new HashSet<NatedAddress>();
                 temp.add(newPar);
-                log.info("{} sending parent request to {} {}", new Object[]{myid, newPar, temp.toString()});
+                log.trace("{} sending parent request to {}", new Object[]{myid, newPar});
                 NatedAddress sending = new BasicNatedAddress(new BasicAddress(localHost, 12345, myid), NatType.NAT, temp);
                 trigger(new NetParentRequest(sending, newPar), network);
             }
@@ -246,7 +247,7 @@ public class NatTraversalComp extends ComponentDefinition {
             for (NatedAddress open : selfAddress.getParents()) {
                 trigger(new NetHeartbeat(selfAddress, open), network);
                 scheduleHeartbeatReplyTimeout(open);
-//                log.info("{} sending heartbeat to {} my parents: {}", new Object[]{selfAddress.getId(), open.getId(), selfAddress.getParents()});
+                log.trace("{} sending heartbeat to {} my parents: {}", new Object[]{selfAddress.getId(), open.getId(), selfAddress.getParents()});
             }
         }
     };
@@ -260,7 +261,7 @@ public class NatTraversalComp extends ComponentDefinition {
             // pause the periodicHeartbeat 
             heartbeatTimeoutMap.remove(event.getParent());
             stopReplyTimeout();
-//            log.warn("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
+            log.info("{} i found a Dead Parent: {}", selfAddress.getId(), event.getParent().getId());
             foundDeadParent = true;
             updateParents();
 
@@ -272,7 +273,7 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(NetHeartbeat event) {
             // A parent received the heartbeat and replies
-//            log.info("{} sending heartbeatReply to {}", selfAddress.getId(), event.getSource());
+            log.trace("{} sending heartbeatReply to {}", selfAddress.getId(), event.getSource());
             trigger(new NetHeartbeatReply(selfAddress, event.getSource()), network);
         }
     };
@@ -282,7 +283,7 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(NetHeartbeatReply event) {
             // reply for the heartbeat arrived, cancel its timeout
-//            log.info("{} got reply from {}, canceling replytimeout", selfAddress.getId(), event.getSource().getId());
+            log.trace("{} got reply from {}, canceling replytimeout", selfAddress.getId(), event.getSource().getId());
             cancelHeartbeatReplyTimeout(event.getSource());
         }
     };
@@ -292,7 +293,7 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(NetParentRequest event) {
             // we could have a policy to not accept new children
-//            log.info("{} received parent request", myid);
+            log.trace("{} received parent request", myid);
             trigger(new NetParentRequestAck(selfAddress, event.getSource()), network);
         }
     };
@@ -310,7 +311,7 @@ public class NatTraversalComp extends ComponentDefinition {
         @Override
         public void handle(ParentChangeTimeout event) {
             if (newParents.isEmpty()) {
-                log.info("{} Didn't find any new parents, i will try again later", selfAddress.getId());
+                log.warn("{} Didn't find any new parents, i will try again later", selfAddress.getId());
                 changingParentsNow = false;
             } else {
                 // create a new object for the selfAddress
@@ -320,7 +321,7 @@ public class NatTraversalComp extends ComponentDefinition {
                 selfAddress = new BasicNatedAddress(new BasicAddress(localHost, 12345, myid), NatType.NAT, temp);
                 foundDeadParent = false;
                 trigger(new NetParentChange(selfAddress, selfAddress), local);
-//            log.warn("{} UPDATED PARENTS SET {}", selfAddress.getId(), selfAddress.getParents().toString());
+                log.trace("{} Updated Parent Set {}", selfAddress.getId(), selfAddress.getParents().toString());
                 schedulePeriodicHeartbeat();
             }
             newParents.clear();

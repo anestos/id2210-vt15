@@ -85,8 +85,8 @@ public class SwimComp extends ComponentDefinition {
 
     // Tweek this variables for different experiments.
     private int indirectPings = 1; // how many nodes are selected for indirect ping
-    private final int lamda = 40; // how many times new information are passed around by the same node
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(45); // the size of the piggyback
+    private final int lamda = 50; // how many times new information are passed around by the same node
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(30); // the size of the piggyback
 
     private final Set<Peer> peersIHaveCommunicatedThisRound = new HashSet<Peer>();
 
@@ -114,7 +114,7 @@ public class SwimComp extends ComponentDefinition {
         subscribe(handlePingTimeout, timer);
         subscribe(handlePongTimeout, timer);
         subscribe(handleSuspectTimeout, timer);
-        subscribe(handleStatusTimeout, timer);
+//        subscribe(handleStatusTimeout, timer);
         subscribe(handleIndirectPingRequest, network);
         subscribe(handleIndirectPing, network);
         subscribe(handleIndirectPong, network);
@@ -130,9 +130,8 @@ public class SwimComp extends ComponentDefinition {
         public void handle(Start event) {
             log.info("{} starting... {}", new Object[]{selfAddress.getId(), selfAddress.getParents()});
             schedulePeriodicPing();
-            schedulePeriodicStatus();
+//            schedulePeriodicStatus();
         }
-
     };
 
     private Handler<Stop> handleStop = new Handler<Stop>() {
@@ -154,7 +153,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetPing event) {
-//            log.info("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
+            log.trace("{} received ping from:{}, sending Pong", new Object[]{selfAddress.getId(), event.getHeader().getSource().getId()});
             receivedPings++;
             // if we get a ping from a node we don't know existed
             // we add it to the alive set and set its incarnation number to 0
@@ -169,6 +168,8 @@ public class SwimComp extends ComponentDefinition {
                 // we reply to the pong but we also tell him that we think he is dead to trigger 
                 // the fightback mechanism with the incarnation number
                 // we use the highest number for infection time, to not spread this information to other nodes as well
+                // this case is not described in the paper but we found it to be a useful addition
+                // since we don't handle revived peers as new
                 addToQueue(new Peer(event.getSource()), "dead", incarnationMap.get(new Peer(event.getSource())), lamda - 1, parentChangesMap.get(new Peer(event.getSource())));
             }
             manageQueue(event.getContent().getQueue());
@@ -184,7 +185,7 @@ public class SwimComp extends ComponentDefinition {
             // cancel the pong timeout (to not trigger indirect)
             cancelPongTimeout(event.getSource());
 
-//            log.info("{} received Pong from {}", new Object[]{selfAddress.getId(), event.getSource().getId()});
+            log.trace("{} received Pong from {}", new Object[]{selfAddress.getId(), event.getSource().getId()});
             // if the peer responding to a Ping is suspected, remove it from the suspected list            
             // cancel the suspect timeout, he replied 
             if (suspectTimeoutMap.containsKey(event.getSource())) {
@@ -228,8 +229,8 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(PongTimeout event) {
-//            log.info("{} Pong timeout, requesting indirect for  {}, pings: {}", new Object[]{selfAddress.getId(), event.getPeer(), receivedPings});
-            // A peer didn't respond to Pong, request indirect timeout from another peer
+            log.trace("{} Pong timeout, requesting indirect for  {}, pings: {}", new Object[]{selfAddress.getId(), event.getPeer(), receivedPings});
+            // A peer didn't respond to Pong, request indirect ping from another peer
             scheduleIndirectTimeout(event.getPeer());
             int i = 0;
             cleanUpQueue();
@@ -246,8 +247,8 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetIndirectPingRequest event) {
-//            log.info("{} got indirect request from {}", new Object[]{selfAddress, event.getSource()});
-            // Someone asked us to ping another node in its behalf
+            log.trace("{} got indirect request from {}", new Object[]{selfAddress, event.getSource()});
+            // Someone asked us to ping another node in its behalf, we simply do it
             trigger(new NetIndirectPing(selfAddress, event.getContent().getSuspected(), event.getSource(), event.getContent().getQueue()), network);
         }
     };
@@ -256,7 +257,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetIndirectPing event) {
-//            log.info("{} got indirect ping from {}", new Object[]{selfAddress, event.getSource()});
+            log.trace("{} got indirect ping from {}", new Object[]{selfAddress, event.getSource()});
             // Received indirect ping, reply accordingly
             manageQueue(event.getContent().getQueue());
             IndirectPong reply = new IndirectPong(queue, event.getContent().getOriginal());
@@ -268,7 +269,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetIndirectPong event) {
-//            log.info("{} got indirect pong from {}", new Object[]{selfAddress, event.getSource()});
+            log.trace("{} got indirect pong from {}", new Object[]{selfAddress, event.getSource()});
             // received the indirectPong, send ack to the ping requester
             IndirectPingAck ack = new IndirectPingAck(event.getContent().getQueue(), event.getSource());
             trigger(new NetIndirectPingAck(selfAddress, event.getContent().getOriginal(), ack), network);
@@ -279,7 +280,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(NetIndirectPingAck event) {
-//             log.info("{} got indirect ack from {}", new Object[]{selfAddress, event.getSource()});
+             log.trace("{} got indirect ack from {}", new Object[]{selfAddress, event.getSource()});
             // received ack for indirect ping, just cancel the timeout and merge the piggyback
             cancelIndirectTimeout(event.getContent().getFrom());
             manageQueue(event.getContent().getQueue());
@@ -290,9 +291,9 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(IndirectTimeout event) {
-//                log.info("{} Indirect TIMEOUT, Suspecting peer {}, parents: {}", new Object[]{selfAddress.getId(), event.getPeer(), event.getPeer().getParents()});
+                log.trace("{} Indirect timeout, Suspecting peer {}, parents: {}", new Object[]{selfAddress.getId(), event.getPeer(), event.getPeer().getParents()});
             // suspect a Peer that didn't respond to a Ping and start a Timer to declare it dead after that time
-            // if it is not suspected already
+            // if it is already suspected by us, we dont add it to our piggyback
             if (!suspectedPeers.contains(new Peer(event.getPeer())) && !deadPeers.contains(new Peer(event.getPeer()))) {
                 suspectedPeers.add(new Peer(event.getPeer()));
                 addToQueue(new Peer(event.getPeer()), "suspected", incarnationMap.get(new Peer(event.getPeer())), 0, parentChangesMap.get(new Peer(event.getPeer())));
@@ -306,8 +307,8 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(DeclareDeadTimeout event) {
+            log.info("{} Declaring peer {} Dead!", new Object[]{selfAddress.getId(), event.getPeer()});
             // declare the peer dead
-//            log.info("{} Declaring peer {} Dead!", new Object[]{selfAddress.getId(), event.getPeer()});
             cancelPongTimeout(event.getPeer());
             deadPeers.add(new Peer(event.getPeer()));
             alivePeers.remove(new Peer(event.getPeer()));
@@ -322,8 +323,9 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(StatusTimeout event) {
-//            log.warn("{} STATUS: pings:{} d:{} a:{} s:{} {} {}", new Object[]{selfAddress.getId(), receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.size(), deadPeers.toString(), suspectedPeers.toString()});
+            log.trace("{} sending status to aggregator", new Object[]{selfAddress.getId()});
 //            trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings, deadPeers, alivePeers, suspectedPeers)), network);
+            // we don't use this timeout, we instead send information to the aggregator each time a change in our state occurs.
         }
 
     };
@@ -471,6 +473,7 @@ public class SwimComp extends ComponentDefinition {
     }
 
     // when we add a new state change to the piggyback, we remove any old information regarding that node
+    // here we also send an event to the aggregator containing our local state
     public void addToQueue(Peer peer, String status, int number, int lamda, int parentNumber) {
         queue.remove(new PeerStatus(peer, "parentChange", number, lamda, parentNumber));
         queue.remove(new PeerStatus(peer, "alive", number, lamda, parentNumber));
@@ -481,7 +484,8 @@ public class SwimComp extends ComponentDefinition {
         trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings, deadPeers, alivePeers, suspectedPeers)), network);
 
     }
-
+    // sort the queue according to infection time
+    // because we don't want relatively new information to get pushed out
     private void sortQueueAccordingToInfectionTime() {
         Collections.sort(queue, new Comparator<PeerStatus>() {
 
@@ -497,7 +501,7 @@ public class SwimComp extends ComponentDefinition {
         });
     }
 
-    // remove items from the piggyback that we already sent infection_time times
+    // remove items from the piggyback that we already sent infectionTime=lamda times
     public void cleanUpQueue() {
         Iterator<PeerStatus> iter = queue.iterator();
         while (iter.hasNext()) {
@@ -511,6 +515,7 @@ public class SwimComp extends ComponentDefinition {
     // merge received queue with local state
     public void manageQueue(StateChanges<PeerStatus> receivedQueue) {
         for (PeerStatus address : receivedQueue) {
+            // if this is a new peer, initialize the values
             if (!address.getPeer().getPeer().getId().equals(selfAddress.getId())) {
                 if (!incarnationMap.containsKey(address.getPeer())) {
                     incarnationMap.put(address.getPeer(), 0);
@@ -518,6 +523,7 @@ public class SwimComp extends ComponentDefinition {
                     parentChangesMap.put(address.getPeer(), 0);
                     addToQueue(address.getPeer(), "alive", 0, 0, 0);
                 }
+                // when the peer is suspected this is new information we add it to the queue
                 if (address.getStatus().equals("suspected")
                         && !deadPeers.contains(address.getPeer())
                         && !suspectedPeers.contains(address.getPeer())
@@ -527,7 +533,7 @@ public class SwimComp extends ComponentDefinition {
                     parentChangesMap.replace(address.getPeer(), address.getNumberOfParentChanges());
                     suspectedPeers.add(address.getPeer());
                     alivePeers.add(address.getPeer());
-
+                // new suspect, with higher incarnation number, overrides old suspect
                 } else if (address.getStatus().equals("suspected")
                         && !deadPeers.contains(address.getPeer())
                         && suspectedPeers.contains(address.getPeer())
@@ -535,7 +541,7 @@ public class SwimComp extends ComponentDefinition {
                     addToQueue(address.getPeer(), "suspected", address.getIncarnationNumber(), 0, address.getNumberOfParentChanges());
                     incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
                     parentChangesMap.replace(address.getPeer(), address.getNumberOfParentChanges());
-
+                // alive status is updated only for higher incarnation time
                 } else if (address.getStatus().equals("alive")
                         && address.getIncarnationNumber() > incarnationMap.get(address.getPeer())) {
                     if (suspectTimeoutMap.containsKey(address.getPeer().getPeer())) {
@@ -547,14 +553,16 @@ public class SwimComp extends ComponentDefinition {
                     suspectedPeers.remove(new Peer(address.getPeer().getPeer()));
                     deadPeers.remove(address.getPeer());
                     alivePeers.add(address.getPeer());
+                // when we receive a parent change we also check the corresponding number, only saving new statuses
                 } else if (address.getStatus().equals("parentChange")
                         && address.getNumberOfParentChanges() > parentChangesMap.get(address.getPeer())) {
                     if (checkIfParentsAreUpdated(address.getPeer())) {
-//                            log.info("{} Knowledge about parents of {} received: {}", new Object[]{selfAddress.getId(), address.getPeer().getPeer().getId(), address.getPeer().getPeer().getParents()});
+                            log.trace("{} Knowledge about parents of {} received: {}", new Object[]{selfAddress.getId(), address.getPeer().getPeer().getId(), address.getPeer().getPeer().getParents()});
                         addToQueue(address.getPeer(), "parentChange", address.getIncarnationNumber(), 0, address.getNumberOfParentChanges());
 //                        incarnationMap.replace(address.getPeer(), address.getIncarnationNumber());
                         parentChangesMap.replace(address.getPeer(), address.getNumberOfParentChanges());
                     }
+                // when we receive dead, we save the information and add it to our queue    
                 } else if (address.getStatus().equals("dead") && !deadPeers.contains(address.getPeer())) {
                     if (address.getIncarnationNumber() >= incarnationMap.get(address.getPeer())) {
                         addToQueue(address.getPeer(), "dead", address.getIncarnationNumber(), 0, address.getNumberOfParentChanges());
@@ -568,12 +576,15 @@ public class SwimComp extends ComponentDefinition {
 
                 }
             } else {
+                // we received a piggyback containing information about us
+                // if we are suspected or dead for some other peer, with the same incarnation time as we localy have, 
+                //we increase the incarnation time and trigger an alive message
                 if (address.getStatus().equals("suspected") || address.getStatus().equals("dead")) {
-                    log.info("{} I am alive. Received word that i was {} inc:{} myinc:{}", new Object[]{selfAddress.getId(), address.getStatus(), address.getIncarnationNumber(), incarnationNumber});
+                    log.trace("{} I am alive. Received word that i was {} inc:{} myinc:{}", new Object[]{selfAddress.getId(), address.getStatus(), address.getIncarnationNumber(), incarnationNumber});
                     if (address.getIncarnationNumber() == incarnationNumber) {
                         incarnationNumber++;
                         addToQueue(new Peer(selfAddress), "alive", incarnationNumber, 0, parentChanges);
-                        log.info("{} added to queue that I am alive", new Object[]{selfAddress.getId()});
+                        log.trace("{} added to queue that I am alive", new Object[]{selfAddress.getId()});
                     }
                 }
             }
@@ -592,7 +603,7 @@ public class SwimComp extends ComponentDefinition {
         return checkDead || checkAlive || checkSuspected;
     }
 
-    // returns true when the set doesn't contain the peer with the new parents
+    // returns true when the set doesn't contain the peer with the new parents, also updates the set
     public boolean parentChangeToSet(Peer peerToCheck, Set<Peer> set) {
         boolean check = false;
         NatedAddress oldAddress = null;

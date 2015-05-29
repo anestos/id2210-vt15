@@ -75,6 +75,7 @@ public class AggregatorComp extends ComponentDefinition {
         @Override
         public void handle(Start event) {
             log.info("{} starting...", new Object[]{selfAddress});
+            // start a timer to count simulation time
             schedulePeriodicTimer();
         }
 
@@ -94,10 +95,13 @@ public class AggregatorComp extends ComponentDefinition {
         public void handle(NetStatus status) {
 //            log.info("{} status from:{} pings:{}, peers d:{} a:{} s:{}", new Object[]{selfAddress.getId(), status.getHeader().getSource(), status.getContent().receivedPings, status.getContent().deadPeers, status.getContent().alivePeers, status.getContent().suspectedPeers});
             if (!timerStarted && status.getContent().deadPeers.size() > 0) {
+                // Save the time when one node sends the aggregator that it detected a dead node in the system
                 startTime = customTimer;
                 timerStarted = true;
             }
             if (!nodesToKillList.contains(status.getSource().getId()) && !peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
+                // When a node who is expected to be alive at the end has the correct information
+                // we put it in the peersWithAllTheInfo set
                 if (status.getContent().deadPeers.size() == nodesToKillList.size()) {
                     boolean check = true;
                     for (Peer peerToCheck : status.getContent().deadPeers) {
@@ -109,13 +113,17 @@ public class AggregatorComp extends ComponentDefinition {
                         peersWithAllTheInfo.add(new Peer(status.getSource()));
                     }
                     if (peersWithAllTheInfo.size() == nodesToStartList.size() - nodesToKillList.size()) {
+                        // when the size of peersWithAllTheInfo is the expected 
+                        // the system converges so we print out the time it took
                         endTime = customTimer;
                         int diff = endTime - startTime;
                         converged = true;
-                        log.info("System converged in: {} ms", new Object[]{diff});
+                        log.info("System converged in: {} ms", new Object[]{diff*100});
                     }
                 }
             } else if (!nodesToKillList.contains(status.getSource().getId()) && peersWithAllTheInfo.contains(new Peer(status.getSource())) && !converged) {
+                // A node might have false information after it has the correct 
+                // so we remove it from the peersWithAllTheInfo set
                 if (status.getContent().deadPeers.size() == nodesToKillList.size()) {
                     boolean check = true;
                     for (Peer peerToCheck : status.getContent().deadPeers) {
@@ -149,6 +157,7 @@ public class AggregatorComp extends ComponentDefinition {
 
         @Override
         public void handle(TimerTimeout event) {
+            // this counter counts time each 100ms in simulation time
             customTimer++;
         }
     };
