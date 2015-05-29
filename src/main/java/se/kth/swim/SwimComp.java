@@ -85,8 +85,8 @@ public class SwimComp extends ComponentDefinition {
 
     // Tweek this variables for different experiments.
     private int indirectPings = 1; // how many nodes are selected for indirect ping
-    private final int lamda = 30; // how many times new information are passed around by the same node
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(25); // the size of the piggyback
+    private final int lamda = 40; // how many times new information are passed around by the same node
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(45); // the size of the piggyback
 
     private final Set<Peer> peersIHaveCommunicatedThisRound = new HashSet<Peer>();
 
@@ -322,7 +322,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(StatusTimeout event) {
-//            log.warn("{} STATUS:                              pings:{} d:{} a:{} s:{}", new Object[]{selfAddress.getId(), receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.toString()});
+//            log.warn("{} STATUS: pings:{} d:{} a:{} s:{} {} {}", new Object[]{selfAddress.getId(), receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.size(), deadPeers.toString(), suspectedPeers.toString()});
 //            trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings, deadPeers, alivePeers, suspectedPeers)), network);
         }
 

@@ -21,7 +21,6 @@ package se.kth.swim.simulation;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import se.kth.swim.AggregatorComp;

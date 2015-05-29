@@ -54,6 +54,6 @@ public class Peer implements Comparable<Peer>{
     }
     @Override
 	public String toString() {
-		return String.format(peer.toString());
+		return String.format(peer.getId().toString());
 	}
 }

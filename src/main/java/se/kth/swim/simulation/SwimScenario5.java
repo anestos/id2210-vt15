@@ -76,12 +76,9 @@ public class SwimScenario5 {
     private static List<Integer> nodesToKillList;
 
     static {
-        nodesToKill = new Integer[20];
+        nodesToKill = new Integer[5];
         for (int i = 0; i < 5; i++) {
-            nodesToKill[i] = i * 2 + 2;
-        }
-        for (int i = 5; i < 20; i++) {
-            nodesToKill[i] = (i+15) * 2+1;
+            nodesToKill[i] = (i + 15) * 2 + 2;
         }
         nodesToKillList = Arrays.asList(nodesToKill);
 
@@ -217,7 +214,7 @@ public class SwimScenario5 {
                 StochasticProcess killPeers = new StochasticProcess() {
                     {
                         eventInterArrivalTime(constant(1000));
-                        raise(20, killNodeOp, new GenIntSequentialDistribution(nodesToKill));
+                        raise(5, killNodeOp, new GenIntSequentialDistribution(nodesToKill));
                     }
                 };
 
@@ -230,8 +227,8 @@ public class SwimScenario5 {
 
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
-                killPeers.startAfterTerminationOf(19000, startPeers);
-                fetchSimulationResult.startAfterTerminationOf(3000000, startPeers);
+                killPeers.startAfterTerminationOf(100000, startPeers);
+                fetchSimulationResult.startAfterTerminationOf(10000000, killPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 
             }

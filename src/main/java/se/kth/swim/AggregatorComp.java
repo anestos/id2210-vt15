@@ -22,7 +22,6 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.kth.swim.msg.net.NetStatus;
@@ -52,8 +51,6 @@ public class AggregatorComp extends ComponentDefinition {
     public final List<Integer> nodesToStartList;
     public final List<Integer> nodesToKillList;
 
-    private Date dateObject;
-    private Date convergeTime;
     private int startTime;
     private int endTime;
     private boolean converged = false;
