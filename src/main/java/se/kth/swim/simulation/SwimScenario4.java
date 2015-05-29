@@ -78,7 +78,7 @@ public class SwimScenario4 {
     static {
         nodesToKill = new Integer[20];
         for (int i = 0; i < 15; i++) {
-            nodesToKill[i] = i * 2 + 2;
+            nodesToKill[i] = (i+30) * 2 + 2;
         }
         for (int i = 15; i < 20; i++) {
             nodesToKill[i] = (i+65) * 2+1;
@@ -229,8 +229,8 @@ public class SwimScenario4 {
 
                 startAggregator.start();
                 startPeers.startAfterTerminationOf(1000, startAggregator);
-                killPeers.startAfterTerminationOf(19000, startPeers);
-                fetchSimulationResult.startAfterTerminationOf(1000000, startPeers);
+                killPeers.startAfterTerminationOf(100000, startPeers);
+                fetchSimulationResult.startAfterTerminationOf(5000000, killPeers);
                 terminateAfterTerminationOf(1000, fetchSimulationResult);
 
             }

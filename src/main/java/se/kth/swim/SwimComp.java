@@ -85,8 +85,8 @@ public class SwimComp extends ComponentDefinition {
 
     // Tweek this variables for different experiments.
     private int indirectPings = 1; // how many nodes are selected for indirect ping
-    private final int lamda = 50; // how many times new information are passed around by the same node
-    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(40); // the size of the piggyback
+    private final int lamda = 30; // how many times new information are passed around by the same node
+    private StateChanges<PeerStatus> queue = new StateChanges<PeerStatus>(25); // the size of the piggyback
 
     private final Set<Peer> peersIHaveCommunicatedThisRound = new HashSet<Peer>();
 
@@ -296,8 +296,8 @@ public class SwimComp extends ComponentDefinition {
             if (!suspectedPeers.contains(new Peer(event.getPeer())) && !deadPeers.contains(new Peer(event.getPeer()))) {
                 suspectedPeers.add(new Peer(event.getPeer()));
                 addToQueue(new Peer(event.getPeer()), "suspected", incarnationMap.get(new Peer(event.getPeer())), 0, parentChangesMap.get(new Peer(event.getPeer())));
-                scheduleSuspectTimeout(event.getPeer());
             }
+            scheduleSuspectTimeout(event.getPeer());
             indirectTimeoutMap.remove(event.getPeer());
         }
     };
@@ -322,7 +322,7 @@ public class SwimComp extends ComponentDefinition {
 
         @Override
         public void handle(StatusTimeout event) {
-//            log.info("{} STATUS:                              pings:{} d:{} a:{} s:{}", new Object[]{selfAddress.getId(), receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.size()});
+//            log.warn("{} STATUS:                              pings:{} d:{} a:{} s:{}", new Object[]{selfAddress.getId(), receivedPings, deadPeers.size(), alivePeers.size(), suspectedPeers.toString()});
 //            trigger(new NetStatus(selfAddress, aggregatorAddress, new Status(receivedPings, deadPeers, alivePeers, suspectedPeers)), network);
         }
 
@@ -385,7 +385,7 @@ public class SwimComp extends ComponentDefinition {
     }
 
     private void schedulePeriodicStatus() {
-        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(10000, 10000);
+        SchedulePeriodicTimeout spt = new SchedulePeriodicTimeout(50000, 50000);
         StatusTimeout sc = new StatusTimeout(spt);
         spt.setTimeoutEvent(sc);
         statusTimeoutId = sc.getTimeoutId();
